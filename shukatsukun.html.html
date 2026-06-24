@@ -11,6 +11,7 @@
             --text-color: #333333;
             --border-color: #dddddd;
             --primary-color: #007bff;
+            --success-color: #28a745;
             
             /* ご指定の予定タイプ別カラー（見やすさのため淡いトーンに調整） */
             --color-es-test: #ffcdd2;    /* ES締切・テスト締切 ⇒ 赤 */
@@ -46,6 +47,11 @@
         }
         button.btn-primary {
             background-color: var(--primary-color);
+            color: white;
+            border: none;
+        }
+        button.btn-success {
+            background-color: var(--success-color);
             color: white;
             border: none;
         }
@@ -248,6 +254,22 @@
             border-left: 4px solid var(--primary-color);
             font-size: 15px;
         }
+
+        /* バックアップエリア */
+        .backup-zone {
+            display: flex;
+            gap: 15px;
+            flex-wrap: wrap;
+            margin-top: 15px;
+        }
+        .backup-btn-group {
+            border: 1px dashed #ccc;
+            padding: 15px;
+            border-radius: 6px;
+            background: #fafafa;
+            flex: 1;
+            min-width: 280px;
+        }
     </style>
 </head>
 <body>
@@ -317,6 +339,25 @@
             <tbody id="companyTableBody">
                 </tbody>
         </table>
+    </div>
+
+    <div class="card">
+        <h2>🛡️ データのバックアップと復元（エクセル連携）</h2>
+        <p style="font-size:13px; color:#666; margin-bottom:15px;">
+            ブラウザの履歴削除などでデータが消えるのを防ぐため、定期的にエクセル形式(CSV)でパソコンやスマホに保存しておくことをお勧めします。
+        </p>
+        <div class="backup-zone">
+            <div class="backup-btn-group">
+                <h3 style="font-size:15px;">📥 バックアップ（PC・スマホへ保存）</h3>
+                <button class="btn-success" onclick="exportCompaniesToCSV()">① 企業一覧をCSV出力</button>
+                <button class="btn-success" onclick="exportEventsToCSV()" style="margin-top:8px;">② 選考予定をCSV出力</button>
+            </div>
+            <div class="backup-btn-group">
+                <h3 style="font-size:15px;">📤 データの復元（過去のCSVを読み込む）</h3>
+                <label style="font-size:12px; font-weight:bold; display:block; margin-bottom:5px;">復元したいCSVファイルを選択：</label>
+                <input type="file" id="importFile" accept=".csv" onchange="importCSV(event)" style="font-size:12px; width:100%;">
+            </div>
+        </div>
     </div>
 </div>
 
@@ -538,27 +579,16 @@
     let companies = JSON.parse(localStorage.getItem('shukatsu_companies')) || SAMPLE_COMPANIES;
     let events = JSON.parse(localStorage.getItem('shukatsu_events')) || SAMPLE_EVENTS;
 
-    // === 不要な架空企業データの強制クリーンアップ処理（「青空商事株式会社」を完全一致に修正） ===
-    const REMOVE_TARGETS = [
-        "フロンティアシステムズ", 
-        "日本キャリア出版", 
-        "青空商事株式会社", 
-        "青空商事株式会社i", 
-        "グローバルコンサルティング", 
-        "未来テクノロジー株式会社"
-    ];
-
-    // 企業リストから完全削除
+    // 架空企業自動お掃除リスト（以前の残骸が完全消去されるおまじない）
+    const REMOVE_TARGETS = ["フロンティアシステムズ", "日本キャリア出版", "青空商事株式会社", "青空商事株式会社i", "グローバルコンサルティング", "未来テクノロジー株式会社"];
     companies = companies.filter(c => !REMOVE_TARGETS.includes(c.name));
-    // それらの企業に紐づいていた古い予定データも完全クリーンアップ
     events = events.filter(e => !REMOVE_TARGETS.includes(e.companyName));
 
-    // 一時的に非表示にするイベントID用（セッション単位）
     let dismissedTodoIds = [];
     let currentCalendarDate = new Date();
 
     window.onload = function() {
-        saveToLocalStorage(); // クリーンアップした状態のデータをストレージへ強制再保存
+        saveToLocalStorage();
         initDashboard();
     };
 
@@ -578,7 +608,6 @@
     function renderTodoList() {
         const todoListEl = document.getElementById('todoList');
         todoListEl.innerHTML = '';
-
         const now = new Date();
         const sevenDaysLater = new Date(now.getTime() + 7 * 24 * 60 * 60 * 1000);
 
@@ -598,81 +627,54 @@
             const li = document.createElement('li');
             li.className = 'todo-item';
             const dateStr = new Date(e.start).toLocaleString('ja-JP', {month:'short', day:'numeric', hour:'2-digit', minute:'2-digit'});
-            
             li.innerHTML = `
                 <div>
                     <span class="badge type-${e.type}">${e.type}</span>
                     <strong class="link-text" onclick="openCompanyByName('${e.companyName}')">${e.companyName}</strong> - ${e.title}
                     <span style="color: #c62828; font-weight: bold; margin-left:15px;">（締切: ${dateStr}）</span>
                 </div>
-                <div>
-                    <button class="btn-sm" onclick="dismissTodo('${e.id}')">✕ 終了</button>
-                </div>
+                <div><button class="btn-sm" onclick="dismissTodo('${e.id}')">✕ 終了</button></div>
             `;
             todoListEl.appendChild(li);
         });
     }
+    function dismissTodo(eventId) { dismissedTodoIds.push(eventId); renderTodoList(); }
 
-    function dismissTodo(eventId) {
-        dismissedTodoIds.push(eventId);
-        renderTodoList();
-    }
-
-    // --- 2. カレンダー機能 (7日均等グリッド仕様) ---
+    // --- 2. カレンダー機能 ---
     function renderCalendar() {
         const grid = document.getElementById('calendarGrid');
         const title = document.getElementById('calendarTitle');
         grid.innerHTML = '';
-
         const year = currentCalendarDate.getFullYear();
         const month = currentCalendarDate.getMonth();
         title.innerText = `${year}年 ${month + 1}月`;
 
-        const daysOfWeek = ['日', '月', '火', '水', '木', '金', '土'];
-        daysOfWeek.forEach(d => {
-            const cell = document.createElement('div');
-            cell.className = 'calendar-cell header-cell';
-            cell.innerText = d;
-            grid.appendChild(cell);
+        ['日', '月', '火', '水', '木', '金', '土'].forEach(d => {
+            const cell = document.createElement('div'); cell.className = 'calendar-cell header-cell'; cell.innerText = d; grid.appendChild(cell);
         });
 
         const firstDay = new Date(year, month, 1).getDay();
         const daysInMonth = new Date(year, month + 1, 0).getDate();
-
         for (let i = 0; i < firstDay; i++) {
-            const cell = document.createElement('div');
-            cell.className = 'calendar-cell';
-            grid.appendChild(cell);
+            const cell = document.createElement('div'); cell.className = 'calendar-cell'; grid.appendChild(cell);
         }
 
         for (let day = 1; day <= daysInMonth; day++) {
-            const cell = document.createElement('div');
-            cell.className = 'calendar-cell';
-
-            const dayNum = document.createElement('div');
-            dayNum.className = 'day-num';
-            dayNum.innerText = day;
-            cell.appendChild(dayNum);
+            const cell = document.createElement('div'); cell.className = 'calendar-cell';
+            const dayNum = document.createElement('div'); dayNum.className = 'day-num'; dayNum.innerText = day; cell.appendChild(dayNum);
 
             const currentStr = `${year}-${String(month + 1).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
-            const dayEvents = events.filter(e => e.start.startsWith(currentStr));
-
-            dayEvents.forEach(e => {
+            events.filter(e => e.start.startsWith(currentStr)).forEach(e => {
                 const evEl = document.createElement('div');
                 evEl.className = `calendar-event type-${e.type}`;
                 evEl.innerText = `[${e.companyName}] ${e.title}`;
                 evEl.title = `[${e.companyName}] ${e.title}`;
-                evEl.onclick = (event) => {
-                    event.stopPropagation();
-                    openEventViewModal(e.id);
-                };
+                evEl.onclick = (event) => { event.stopPropagation(); openEventViewModal(e.id); };
                 cell.appendChild(evEl);
             });
-
             grid.appendChild(cell);
         }
     }
-
     function prevMonth() { currentCalendarDate.setMonth(currentCalendarDate.getMonth() - 1); renderCalendar(); }
     function nextMonth() { currentCalendarDate.setMonth(currentCalendarDate.getMonth() + 1); renderCalendar(); }
 
@@ -680,39 +682,29 @@
     function populateIndustryFilter() {
         const filter = document.getElementById('filterIndustry');
         filter.innerHTML = '<option value="">すべての業界</option>';
-        const industries = [...new Set(companies.map(c => c.industry).filter(Boolean))];
-        industries.forEach(ind => {
-            const opt = document.createElement('option');
-            opt.value = ind; opt.innerText = ind;
-            filter.appendChild(opt);
+        [...new Set(companies.map(c => c.industry).filter(Boolean))].forEach(ind => {
+            const opt = document.createElement('option'); opt.value = ind; opt.innerText = ind; filter.appendChild(opt);
         });
     }
 
     function renderCompanyTable() {
         const tbody = document.getElementById('companyTableBody');
         tbody.innerHTML = '';
-
         const search = document.getElementById('searchCompany').value.toLowerCase();
         const status = document.getElementById('filterStatus').value;
         const industry = document.getElementById('filterIndustry').value;
         const target = document.getElementById('filterTarget').value;
 
-        const filtered = companies.filter(c => {
+        companies.filter(c => {
             if (search && !c.name.toLowerCase().includes(search)) return false;
             if (status && c.status !== status) return false;
             if (industry && c.industry !== industry) return false;
             if (target && c.target !== target) return false;
             return true;
-        });
-
-        filtered.forEach(c => {
-            const compEvents = events.filter(e => e.companyName === c.name)
-                                     .sort((a,b) => new Date(a.start) - new Date(b.start));
+        }).forEach(c => {
+            const compEvents = events.filter(e => e.companyName === c.name).sort((a,b) => new Date(a.start) - new Date(b.start));
             let nextEventText = "予定なし";
-            if(compEvents.length > 0) {
-                const nextE = compEvents[0];
-                nextEventText = `${nextE.start.split('T')[0]} : ${nextE.title}`;
-            }
+            if(compEvents.length > 0) nextEventText = `${compEvents[0].start.split('T')[0]} : ${compEvents[0].title}`;
 
             const tr = document.createElement('tr');
             tr.innerHTML = `
@@ -721,246 +713,204 @@
                 <td>${c.industry || '-'}</td>
                 <td>${c.target || '-'}</td>
                 <td style="font-size:12px;">${nextEventText}</td>
-                <td>
-                    <button onclick="openCompanyEditModal('${c.id}')">編集</button>
-                </td>
+                <td><button onclick="openCompanyEditModal('${c.id}')">編集</button></td>
             `;
             tbody.appendChild(tr);
         });
     }
 
-    function closeModal(modalId) {
-        document.getElementById(modalId).style.display = 'none';
-    }
+    function closeModal(modalId) { document.getElementById(modalId).style.display = 'none'; }
 
-    // --- 🅰 予定の「ポップアップ表示（閲覧）」制御 ---
+    // モーダル表示用JS群（中略・処理ロジック維持）
     function openEventViewModal(eventId) {
-        const ev = events.find(e => e.id === eventId);
-        if (!ev) return;
-
+        const ev = events.find(e => e.id === eventId); if (!ev) return;
         document.getElementById('vEventTitleHeader').innerText = ev.title;
         document.getElementById('vEventTitle').innerText = ev.title;
         document.getElementById('vEventCompanyName').innerText = ev.companyName;
-        document.getElementById('vEventCompanyName').onclick = () => {
-            closeModal('eventViewModal');
-            openCompanyByName(ev.companyName);
-        };
+        document.getElementById('vEventCompanyName').onclick = () => { closeModal('eventViewModal'); openCompanyByName(ev.companyName); };
         document.getElementById('vEventType').innerText = ev.type;
         document.getElementById('vEventStart').innerText = ev.start.replace('T', ' ');
         document.getElementById('vEventEnd').innerText = ev.end ? ev.end.replace('T', ' ') : '-';
         document.getElementById('vEventLocation').innerText = ev.location || '-';
         document.getElementById('vEventMemo').innerText = ev.memo || '-';
-
-        document.getElementById('goToEventEditBtn').onclick = () => {
-            closeModal('eventViewModal');
-            openEventEditModal(eventId);
-        };
-
+        document.getElementById('goToEventEditBtn').onclick = () => { closeModal('eventViewModal'); openEventEditModal(eventId); };
         document.getElementById('eventViewModal').style.display = 'flex';
     }
 
-    // --- 🅱 予定の「登録・編集」制御 ---
     function openEventEditModal(eventId) {
-        const form = document.getElementById('eventForm');
-        form.reset();
+        const form = document.getElementById('eventForm'); form.reset();
         document.getElementById('eventId').value = eventId || '';
-
         if (eventId) {
             document.getElementById('eventEditModalTitle').innerText = "予定の編集";
             document.getElementById('deleteEventBtn').style.display = 'block';
             const ev = events.find(e => e.id === eventId);
             if (ev) {
-                document.getElementById('eventTitle').value = ev.title;
-                document.getElementById('eventCompanyName').value = ev.companyName;
-                document.getElementById('eventType').value = ev.type;
-                document.getElementById('eventStart').value = ev.start;
-                document.getElementById('eventEnd').value = ev.end;
-                document.getElementById('eventLocation').value = ev.location;
-                document.getElementById('eventMemo').value = ev.memo;
+                document.getElementById('eventTitle').value = ev.title; document.getElementById('eventCompanyName').value = ev.companyName;
+                document.getElementById('eventType').value = ev.type; document.getElementById('eventStart').value = ev.start;
+                document.getElementById('eventEnd').value = ev.end; document.getElementById('eventLocation').value = ev.location; document.getElementById('eventMemo').value = ev.memo;
             }
         } else {
-            document.getElementById('eventEditModalTitle').innerText = "新規予定の追加";
-            document.getElementById('deleteEventBtn').style.display = 'none';
+            document.getElementById('eventEditModalTitle').innerText = "新規予定の追加"; document.getElementById('deleteEventBtn').style.display = 'none';
         }
         document.getElementById('eventEditModal').style.display = 'flex';
     }
 
     function saveEvent(e) {
-        e.preventDefault();
-        const id = document.getElementById('eventId').value;
-        const compName = document.getElementById('eventCompanyName').value.trim();
-
-        const eventData = {
-            id: id || 'e_' + Date.now(),
-            title: document.getElementById('eventTitle').value,
-            companyName: compName,
-            type: document.getElementById('eventType').value,
-            start: document.getElementById('eventStart').value,
-            end: document.getElementById('eventEnd').value,
-            location: document.getElementById('eventLocation').value,
-            memo: document.getElementById('eventMemo').value
-        };
-
-        if (id) {
-            const idx = events.findIndex(event => event.id === id);
-            events[idx] = eventData;
-        } else {
-            events.push(eventData);
-        }
-
+        e.preventDefault(); const id = document.getElementById('eventId').value; const compName = document.getElementById('eventCompanyName').value.trim();
+        const eventData = { id: id || 'e_' + Date.now(), title: document.getElementById('eventTitle').value, companyName: compName, type: document.getElementById('eventType').value, start: document.getElementById('eventStart').value, end: document.getElementById('eventEnd').value, location: document.getElementById('eventLocation').value, memo: document.getElementById('eventMemo').value };
+        if (id) { const idx = events.findIndex(event => event.id === id); events[idx] = eventData; } else { events.push(eventData); }
         if (!companies.some(c => c.name === compName)) {
-            companies.push({
-                id: 'c_' + Date.now(),
-                name: compName,
-                status: '未エントリー',
-                industry: '', target: '第3志望以下', mypageUrl: '', mypageId: '', interventions: '', currentStatus: '', salary: '', holiday: '', otherConditions: '', openwork: '', memo: ''
-            });
+            companies.push({ id: 'c_' + Date.now(), name: compName, status: '未エントリー', industry: '', target: '第3志望以下', mypageUrl: '', mypageId: '', interventions: '', currentStatus: '', salary: '', holiday: '', otherConditions: '', openwork: '', memo: '' });
         }
-
-        saveToLocalStorage();
-        closeModal('eventEditModal');
-        initDashboard();
+        saveToLocalStorage(); closeModal('eventEditModal'); initDashboard();
     }
 
     function deleteEvent() {
         const id = document.getElementById('eventId').value;
-        if(confirm("この予定を削除しますか？")) {
-            events = events.filter(e => e.id !== id);
-            saveToLocalStorage();
-            closeModal('eventEditModal');
-            initDashboard();
-        }
+        if(confirm("この予定を削除しますか？")) { events = events.filter(e => e.id !== id); saveToLocalStorage(); closeModal('eventEditModal'); initDashboard(); }
     }
 
-    // --- 🅲 企業の「ポップアップ表示（閲覧）」制御 ---
     function openCompanyViewModal(companyId) {
-        const c = companies.find(comp => comp.id === companyId);
-        if (!c) return;
-
-        document.getElementById('vCompanyNameHeader').innerText = c.name;
-        document.getElementById('vCompanyName').innerText = c.name;
-        document.getElementById('vCompanyStatus').innerText = c.status;
-        document.getElementById('vCompanyIndustry').innerText = c.industry || '-';
-        document.getElementById('vCompanyTarget').innerText = c.target || '-';
-        
-        if (c.mypageUrl) {
-            document.getElementById('vCompanyUrl').innerHTML = `<a href="${c.mypageUrl}" target="_blank">${c.mypageUrl}</a>`;
-        } else {
-            document.getElementById('vCompanyUrl').innerText = '-';
-        }
-        document.getElementById('vCompanyMypageId').innerText = c.mypageId || '-';
-
-        document.getElementById('vCompanyInterventions').innerText = c.interventions || '-';
-        document.getElementById('vCompanyCurrentStatus').innerText = c.currentStatus || '-';
-        document.getElementById('vCompanySalary').innerText = c.salary || '-';
-        document.getElementById('vCompanyHoliday').innerText = c.holiday || '-';
-        document.getElementById('vCompanyOtherConditions').innerText = c.otherConditions || '-';
-        document.getElementById('vCompanyOpenwork').innerText = c.openwork || '-';
-        document.getElementById('vCompanyMemo').innerText = c.memo || '-';
-
-        document.getElementById('goToCompanyEditBtn').onclick = () => {
-            closeModal('companyViewModal');
-            openCompanyEditModal(companyId);
-        };
-
+        const c = companies.find(comp => comp.id === companyId); if (!c) return;
+        document.getElementById('vCompanyNameHeader').innerText = c.name; document.getElementById('vCompanyName').innerText = c.name;
+        document.getElementById('vCompanyStatus').innerText = c.status; document.getElementById('vCompanyIndustry').innerText = c.industry || '-'; document.getElementById('vCompanyTarget').innerText = c.target || '-';
+        if (c.mypageUrl) { document.getElementById('vCompanyUrl').innerHTML = `<a href="${c.mypageUrl}" target="_blank">${c.mypageUrl}</a>`; } else { document.getElementById('vCompanyUrl').innerText = '-'; }
+        document.getElementById('vCompanyMypageId').innerText = c.mypageId || '-'; document.getElementById('vCompanyInterventions').innerText = c.interventions || '-';
+        document.getElementById('vCompanyCurrentStatus').innerText = c.currentStatus || '-'; document.getElementById('vCompanySalary').innerText = c.salary || '-';
+        document.getElementById('vCompanyHoliday').innerText = c.holiday || '-'; document.getElementById('vCompanyOtherConditions').innerText = c.otherConditions || '-';
+        document.getElementById('vCompanyOpenwork').innerText = c.openwork || '-'; document.getElementById('vCompanyMemo').innerText = c.memo || '-';
+        document.getElementById('goToCompanyEditBtn').onclick = () => { closeModal('companyViewModal'); openCompanyEditModal(companyId); };
         document.getElementById('companyViewModal').style.display = 'flex';
     }
 
-    function openCompanyByName(name) {
-        const c = companies.find(comp => comp.name === name);
-        if (c) {
-            openCompanyViewModal(c.id);
-        } else {
-            alert("該当する企業情報が見つかりませんでした。");
-        }
-    }
+    function openCompanyByName(name) { const c = companies.find(comp => comp.name === name); if (c) { openCompanyViewModal(c.id); } else { alert("該当する企業情報が見つかりませんでした。"); } }
 
-    // --- 🅳 企業の「登録・編集」制御 ---
     function openCompanyEditModal(companyId) {
-        const form = document.getElementById('companyForm');
-        form.reset();
-        document.getElementById('companyId').value = companyId || '';
-
+        const form = document.getElementById('companyForm'); form.reset(); document.getElementById('companyId').value = companyId || '';
         if (companyId) {
-            document.getElementById('deleteCompanyBtn').style.display = 'block';
-            const c = companies.find(comp => comp.id === companyId);
+            document.getElementById('deleteCompanyBtn').style.display = 'block'; const c = companies.find(comp => comp.id === companyId);
             if (c) {
-                document.getElementById('companyName').value = c.name;
-                document.getElementById('companyStatus').value = c.status;
-                document.getElementById('companyIndustry').value = c.industry;
-                document.getElementById('companyTarget').value = c.target;
-                document.getElementById('companyUrl').value = c.mypageUrl || '';
-                document.getElementById('companyMypageId').value = c.mypageId || '';
-                document.getElementById('companyInterventions').value = c.interventions || '';
-                document.getElementById('companyCurrentStatus').value = c.currentStatus || '';
-                document.getElementById('companySalary').value = c.salary || '';
-                document.getElementById('companyHoliday').value = c.holiday || '';
-                document.getElementById('companyOtherConditions').value = c.otherConditions || '';
-                document.getElementById('companyOpenwork').value = c.openwork || '';
-                document.getElementById('companyMemo').value = c.memo || '';
+                document.getElementById('companyName').value = c.name; document.getElementById('companyStatus').value = c.status;
+                document.getElementById('companyIndustry').value = c.industry; document.getElementById('companyTarget').value = c.target;
+                document.getElementById('companyUrl').value = c.mypageUrl || ''; document.getElementById('companyMypageId').value = c.mypageId || '';
+                document.getElementById('companyInterventions').value = c.interventions || ''; document.getElementById('companyCurrentStatus').value = c.currentStatus || '';
+                document.getElementById('companySalary').value = c.salary || ''; document.getElementById('companyHoliday').value = c.holiday || '';
+                document.getElementById('companyOtherConditions').value = c.otherConditions || ''; document.getElementById('companyOpenwork').value = c.openwork || ''; document.getElementById('companyMemo').value = c.memo || '';
             }
-        } else {
-            document.getElementById('deleteCompanyBtn').style.display = 'none';
-        }
+        } else { document.getElementById('deleteCompanyBtn').style.display = 'none'; }
         document.getElementById('companyEditModal').style.display = 'flex';
     }
 
     function saveCompany(e) {
-        e.preventDefault();
-        const id = document.getElementById('companyId').value;
-        const newName = document.getElementById('companyName').value.trim();
-
-        let oldName = "";
-        if(id) {
-            const oldC = companies.find(comp => comp.id === id);
-            if(oldC) oldName = oldC.name;
-        }
-
-        const compData = {
-            id: id || 'c_' + Date.now(),
-            name: newName,
-            status: document.getElementById('companyStatus').value,
-            industry: document.getElementById('companyIndustry').value,
-            target: document.getElementById('companyTarget').value,
-            mypageUrl: document.getElementById('companyUrl').value,
-            mypageId: document.getElementById('companyMypageId').value,
-            interventions: document.getElementById('companyInterventions').value,
-            currentStatus: document.getElementById('companyCurrentStatus').value,
-            salary: document.getElementById('companySalary').value,
-            holiday: document.getElementById('companyHoliday').value,
-            otherConditions: document.getElementById('companyOtherConditions').value,
-            openwork: document.getElementById('companyOpenwork').value,
-            memo: document.getElementById('companyMemo').value
-        };
-
-        if (id) {
-            const idx = companies.findIndex(comp => comp.id === id);
-            companies[idx] = compData;
-            
-            if(oldName && oldName !== newName) {
-                events = events.map(ev => {
-                    if(ev.companyName === oldName) ev.companyName = newName;
-                    return ev;
-                });
-            }
-        } else {
-            companies.push(compData);
-        }
-
-        saveToLocalStorage();
-        closeModal('companyEditModal');
-        initDashboard();
+        e.preventDefault(); const id = document.getElementById('companyId').value; const newName = document.getElementById('companyName').value.trim();
+        let oldName = ""; if(id) { const oldC = companies.find(comp => comp.id === id); if(oldC) oldName = oldC.name; }
+        const compData = { id: id || 'c_' + Date.now(), name: newName, status: document.getElementById('companyStatus').value, industry: document.getElementById('companyIndustry').value, target: document.getElementById('companyTarget').value, mypageUrl: document.getElementById('companyUrl').value, mypageId: document.getElementById('companyMypageId').value, interventions: document.getElementById('companyInterventions').value, currentStatus: document.getElementById('companyCurrentStatus').value, salary: document.getElementById('companySalary').value, holiday: document.getElementById('companyHoliday').value, otherConditions: document.getElementById('companyOtherConditions').value, openwork: document.getElementById('companyOpenwork').value, memo: document.getElementById('companyMemo').value };
+        if (id) { companies[companies.findIndex(comp => comp.id === id)] = compData; if(oldName && oldName !== newName) { events = events.map(ev => { if(ev.companyName === oldName) ev.companyName = newName; return ev; }); } } else { companies.push(compData); }
+        saveToLocalStorage(); closeModal('companyEditModal'); initDashboard();
     }
 
     function deleteCompany() {
-        const id = document.getElementById('companyId').value;
-        const c = companies.find(comp => comp.id === id);
-        if(c && confirm(`「${c.name}」を削除しますか？（紐づく予定は自動削除されません）`)) {
-            companies = companies.filter(comp => comp.id !== id);
-            saveToLocalStorage();
-            closeModal('companyEditModal');
-            initDashboard();
+        const id = document.getElementById('companyId').value; const c = companies.find(comp => comp.id === id);
+        if(c && confirm(`「${c.name}」を削除しますか？（紐づく予定は自動削除されません）`)) { companies = companies.filter(comp => comp.id !== id); saveToLocalStorage(); closeModal('companyEditModal'); initDashboard(); }
+    }
+
+    // ================= 新機能: CSV（エクセル連携）バックアップ & 復元システム =================
+
+    // ① 企業データをCSVとして出力（エクセル対応BOM付き）
+    function exportCompaniesToCSV() {
+        const headers = ["ID", "企業名", "進捗", "業界", "志望度", "マイページURL", "マイページID", "参加状況", "現在の志望状況", "給与", "休日", "その他の条件", "オープンワークの印象", "その他メモ"];
+        const rows = companies.map(c => [
+            c.id, c.name, c.status, c.industry||"", c.target||"", c.mypageUrl||"", c.mypageId||"", 
+            c.interventions||"", c.currentStatus||"", c.salary||"", c.holiday||"", c.otherConditions||"", c.openwork||"", c.memo||""
+        ]);
+        downloadCSV("shukatsu_companies_backup.csv", headers, rows);
+    }
+
+    // ② 予定データをCSVとして出力
+    function exportEventsToCSV() {
+        const headers = ["ID", "予定名", "企業名", "予定タイプ", "開始時間", "終了時間", "場所", "メモ"];
+        const rows = events.map(e => [
+            e.id, e.title, e.companyName, e.type, e.start, e.end||"", e.location||"", e.memo||""
+        ]);
+        downloadCSV("shukatsu_events_backup.csv", headers, rows);
+    }
+
+    // 共通CSVダウンロード処理（エクセルの日本語文字化け対策込み）
+    function downloadCSV(filename, headers, rows) {
+        const escapeCSV = (val) => {
+            let text = String(val).replace(/"/g, '""');
+            if (text.includes(',') || text.includes('\n') || text.includes('"')) text = `"${text}"`;
+            return text;
+        };
+        const content = [headers.join(','), ...rows.map(r => r.map(escapeCSV).join(','))].join('\n');
+        const bom = new Uint8Array([0xEF, 0xBB, 0xBF]); // Excel文字化け防止用BOM
+        const blob = new Blob([bom, content], { type: "text/csv;charset=utf-8;" });
+        const link = document.createElement("a");
+        link.href = URL.createObjectURL(blob); link.setAttribute("download", filename);
+        document.body.appendChild(link); link.click(); document.body.removeChild(link);
+    }
+
+    // ③ CSVファイルを読み込んでデータを復元する処理
+    function importCSV(e) {
+        const file = e.target.files[0];
+        if (!file) return;
+
+        const reader = new FileReader();
+        reader.onload = function(evt) {
+            const text = evt.target.result;
+            const lines = parseCSVText(text);
+            if (lines.length < 2) { alert("有効なCSVファイルではありません。"); return; }
+
+            const headers = lines[0];
+            
+            // 企業データの復元判定
+            if (headers.includes("企業名") && headers.includes("進捗")) {
+                if(!confirm("インポートしたファイルで【登録企業一覧】を上書きしますか？")) return;
+                companies = lines.slice(1).filter(l => l.length >= 2 && l[1]).map(l => ({
+                    id: l[0] || 'c_' + Date.now() + Math.random(), name: l[1], status: l[2] || "未エントリー", 
+                    industry: l[3], target: l[4], mypageUrl: l[5], mypageId: l[6], interventions: l[7], 
+                    currentStatus: l[8], salary: l[9], holiday: l[10], otherConditions: l[11], openwork: l[12], memo: l[13]
+                }));
+                saveToLocalStorage(); initDashboard(); alert("企業情報を復元しました！");
+            } 
+            // 予定データの復元判定
+            else if (headers.includes("予定名") && headers.includes("開始時間")) {
+                if(!confirm("インポートしたファイルで【選考予定カレンダー】を上書きしますか？")) return;
+                events = lines.slice(1).filter(l => l.length >= 5 && l[1]).map(l => ({
+                    id: l[0] || 'e_' + Date.now() + Math.random(), title: l[1], companyName: l[2], 
+                    type: l[3], start: l[4], end: l[5], location: l[6], memo: l[7]
+                }));
+                saveToLocalStorage(); initDashboard(); alert("選考予定を復元しました！");
+            } else {
+                alert("対応していないCSVファイルです。出力したバックアップCSVを選択してください。");
+            }
+            document.getElementById('importFile').value = ""; // リセット
+        };
+        reader.readAsText(file, "UTF-8");
+    }
+
+    // 簡易CSVパース（カンマや改行のクォーテーションを考慮）
+    function parseCSVText(text) {
+        let lines = []; let row = [""]; let inQuotes = false;
+        // BOM削除
+        if (text.startsWith('\uFEFF')) text = text.substring(1);
+        
+        for (let i = 0; i < text.length; i++) {
+            let c = text[i]; let next = text[i+1];
+            if (c === '"') {
+                if (inQuotes && next === '"') { row[row.length - 1] += '"'; i++; }
+                else { inQuotes = !inQuotes; }
+            } else if (c === ',' && !inQuotes) {
+                row.push('');
+            } else if ((c === '\r' || c === '\n') && !inQuotes) {
+                if (c === '\r' && next === '\n') i++;
+                lines.push(row); row = [''];
+            } else {
+                row[row.length - 1] += c;
+            }
         }
+        if (row.length > 1 || row[0] !== '') lines.push(row);
+        return lines;
     }
 </script>
 </body>
