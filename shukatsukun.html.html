@@ -1,0 +1,967 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>就活管理くん</title>
+    <style>
+        :root {
+            --bg-color: #f4f6f9;
+            --card-bg: #ffffff;
+            --text-color: #333333;
+            --border-color: #dddddd;
+            --primary-color: #007bff;
+            
+            /* ご指定の予定タイプ別カラー（見やすさのため淡いトーンに調整） */
+            --color-es-test: #ffcdd2;    /* ES締切・テスト締切 ⇒ 赤 */
+            --color-intern-f: #ffe0b2;   /* 確定インターン ⇒ オレンジ */
+            --color-intern-u: #b3e5fc;   /* 未定インターン ⇒ 水色 */
+            --color-info: #fff9c4;       /* 説明会 ⇒ 黄色 */
+            --color-interview-final: #f8bbd0; /* 面接・本選考 ⇒ ピンク */
+        }
+
+        body {
+            font-family: "Helvetica Neue", Arial, "Hiragino Kaku Gothic ProN", "Hiragino Sans", Meiryo, sans-serif;
+            background-color: var(--bg-color);
+            color: var(--text-color);
+            margin: 0;
+            padding: 20px;
+        }
+
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+        }
+
+        h1, h2, h3 {
+            margin-top: 0;
+        }
+
+        button {
+            cursor: pointer;
+            padding: 6px 12px;
+            border-radius: 4px;
+            border: 1px solid var(--border-color);
+            background-color: #fff;
+        }
+        button.btn-primary {
+            background-color: var(--primary-color);
+            color: white;
+            border: none;
+        }
+        button.btn-sm {
+            padding: 3px 8px;
+            font-size: 12px;
+        }
+
+        .card {
+            background: var(--card-bg);
+            border-radius: 8px;
+            padding: 20px;
+            margin-bottom: 20px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.05);
+        }
+
+        /* 今週やるべきこと */
+        .todo-list {
+            list-style: none;
+            padding: 0;
+            margin: 0;
+        }
+        .todo-item {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 10px;
+            border-bottom: 1px solid var(--border-color);
+        }
+        .todo-item:last-child { border-bottom: none; }
+        .badge {
+            padding: 2px 6px;
+            border-radius: 4px;
+            font-size: 12px;
+            font-weight: bold;
+            display: inline-block;
+            margin-right: 5px;
+            color: #333;
+        }
+
+        /* カレンダー（7日間一律の幅を保つためのグリッド設定） */
+        .calendar-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 10px;
+        }
+        .calendar-grid {
+            display: grid;
+            grid-template-columns: repeat(7, 1fr); /* 常に7等分 */
+            border-top: 1px solid var(--border-color);
+            border-left: 1px solid var(--border-color);
+            table-layout: fixed;
+            width: 100%;
+        }
+        .calendar-cell {
+            background: #fff;
+            min-height: 110px;
+            border-right: 1px solid var(--border-color);
+            border-bottom: 1px solid var(--border-color);
+            padding: 5px;
+            box-sizing: border-box;
+            overflow: hidden; /* セル幅を固定するためはみ出しを防ぐ */
+        }
+        .calendar-cell.header-cell {
+            background: #eee;
+            min-height: auto;
+            text-align: center;
+            font-weight: bold;
+            padding: 10px 5px;
+        }
+        .day-num { font-weight: bold; margin-bottom: 5px; }
+        
+        /* 予定ボタンのテキスト溢れ対策 */
+        .calendar-event {
+            font-size: 11px;
+            padding: 2px 4px;
+            margin-bottom: 3px;
+            border-radius: 3px;
+            cursor: pointer;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            border: 1px solid rgba(0,0,0,0.15);
+            display: block;
+            color: #222;
+        }
+
+        /* ご指定のカラー定義マッピング */
+        .type-ES締切, .type-テスト締切 { background-color: var(--color-es-test); }
+        .type-確定インターン { background-color: var(--color-intern-f); }
+        .type-未定インターン { background-color: var(--color-intern-u); }
+        .type-説明会 { background-color: var(--color-info); }
+        .type-面接, .type-本選考 { background-color: var(--color-interview-final); }
+
+        /* 企業一覧・フィルター */
+        .filter-bar {
+            display: flex;
+            gap: 10px;
+            margin-bottom: 15px;
+            flex-wrap: wrap;
+        }
+        .filter-bar select, .filter-bar input {
+            padding: 6px;
+            border-radius: 4px;
+            border: 1px solid var(--border-color);
+        }
+        .company-table {
+            width: 100%;
+            border-collapse: collapse;
+        }
+        .company-table th, .company-table td {
+            border: 1px solid var(--border-color);
+            padding: 10px;
+            text-align: left;
+        }
+        .company-table th { background-color: #f8f9fa; }
+        
+        .link-text {
+            color: var(--primary-color);
+            cursor: pointer;
+            text-decoration: underline;
+        }
+
+        /* モーダル共通・ポップアップ */
+        .modal {
+            display: none;
+            position: fixed;
+            top: 0; left: 0; width: 100%; height: 100%;
+            background: rgba(0,0,0,0.5);
+            justify-content: center;
+            align-items: center;
+            z-index: 1000;
+        }
+        .modal-content {
+            background: white;
+            padding: 24px;
+            border-radius: 8px;
+            width: 90%;
+            max-width: 600px;
+            max-height: 85vh;
+            overflow-y: auto;
+            position: relative;
+        }
+        .modal-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            border-bottom: 1px solid var(--border-color);
+            padding-bottom: 10px;
+            margin-bottom: 15px;
+        }
+        .close-btn {
+            font-size: 24px;
+            cursor: pointer;
+            background: none;
+            border: none;
+            padding: 0 5px;
+        }
+        .form-group {
+            margin-bottom: 12px;
+        }
+        .form-group label {
+            display: block;
+            margin-bottom: 5px;
+            font-weight: bold;
+            font-size: 14px;
+        }
+        .form-group input, .form-group select, .form-group textarea {
+            width: 100%;
+            padding: 8px;
+            box-sizing: border-box;
+            border: 1px solid var(--border-color);
+            border-radius: 4px;
+        }
+        
+        /* ポップアップ表示用（閲覧モード）のスタイル */
+        .view-row {
+            margin-bottom: 14px;
+            border-bottom: 1px dashed #eee;
+            padding-bottom: 8px;
+        }
+        .view-label {
+            font-size: 12px;
+            color: #666;
+            font-weight: bold;
+            margin-bottom: 3px;
+        }
+        .view-value {
+            font-size: 15px;
+            white-space: pre-wrap;
+        }
+
+        .section-title {
+            background: #e9ecef;
+            padding: 6px 10px;
+            margin-top: 18px;
+            margin-bottom: 10px;
+            font-weight: bold;
+            border-left: 4px solid var(--primary-color);
+            font-size: 15px;
+        }
+    </style>
+</head>
+<body>
+
+<div class="container">
+    <h1>💼 就活管理くん</h1>
+
+    <div class="card">
+        <h2>⚠️ 今週やるべきこと（直近7日以内のES・テスト締切）</h2>
+        <ul id="todoList" class="todo-list">
+            </ul>
+    </div>
+
+    <div class="card">
+        <div class="calendar-header">
+            <div>
+                <button onclick="prevMonth()">◀ 前月</button>
+                <span id="calendarTitle" style="font-size: 1.2rem; font-weight: bold; margin: 0 10px;"></span>
+                <button onclick="nextMonth()">次月 ▶</button>
+            </div>
+            <button class="btn-primary" onclick="openEventEditModal(null)">＋ 予定を追加</button>
+        </div>
+        <div class="calendar-grid" id="calendarGrid">
+            </div>
+    </div>
+
+    <div class="card">
+        <div class="calendar-header">
+            <h2>🏢 登録企業一覧</h2>
+            <button class="btn-primary" onclick="openCompanyEditModal(null)">＋ 企業を追加</button>
+        </div>
+        
+        <div class="filter-bar">
+            <input type="text" id="searchCompany" placeholder="企業名検索..." oninput="renderCompanyTable()">
+            <select id="filterStatus" onchange="renderCompanyTable()">
+                <option value="">すべての進捗</option>
+                <option value="未エントリー">未エントリー</option>
+                <option value="ES提出済">ES提出済</option>
+                <option value="サマーインターン確定">サマーインターン確定</option>
+                <option value="サマー落ち">サマー落ち</option>
+                <option value="面接中">面接中</option>
+                <option value="内定">内定</option>
+                <option value="お見送り">お見送り</option>
+            </select>
+            <select id="filterIndustry" onchange="renderCompanyTable()">
+                <option value="">すべての業界</option>
+            </select>
+            <select id="filterTarget" onchange="renderCompanyTable()">
+                <option value="">すべての志望度</option>
+                <option value="第1志望">第1志望</option>
+                <option value="第2志望">第2志望</option>
+                <option value="第3志望以下">第3志望以下</option>
+            </select>
+        </div>
+
+        <table class="company-table">
+            <thead>
+                <tr>
+                    <th>企業名</th>
+                    <th>進捗</th>
+                    <th>業界</th>
+                    <th>志望度</th>
+                    <th>直近の選考予定</th>
+                    <th>操作</th>
+                </tr>
+            </thead>
+            <tbody id="companyTableBody">
+                </tbody>
+        </table>
+    </div>
+</div>
+
+<div id="eventViewModal" class="modal">
+    <div class="modal-content">
+        <div class="modal-header">
+            <h3 id="vEventTitleHeader">予定の詳細</h3>
+            <div>
+                <button class="btn-primary btn-sm" id="goToEventEditBtn">編集</button>
+                <button class="close-btn" onclick="closeModal('eventViewModal')">&times;</button>
+            </div>
+        </div>
+        <div>
+            <div class="view-row"><div class="view-label">見出し（予定名）</div><div class="view-value" id="vEventTitle"></div></div>
+            <div class="view-row"><div class="view-label">企業名（タップで企業詳細へ）</div><div class="view-value"><strong id="vEventCompanyName" class="link-text"></strong></div></div>
+            <div class="view-row"><div class="view-label">予定タイプ</div><div class="view-value" id="vEventType"></div></div>
+            <div class="view-row"><div class="view-label">開始時間</div><div class="view-value" id="vEventStart"></div></div>
+            <div class="view-row"><div class="view-label">終了時間</div><div class="view-value" id="vEventEnd"></div></div>
+            <div class="view-row"><div class="view-label">場所</div><div class="view-value" id="vEventLocation"></div></div>
+            <div class="view-row"><div class="view-label">メモ</div><div class="view-value" id="vEventMemo"></div></div>
+        </div>
+    </div>
+</div>
+
+<div id="eventEditModal" class="modal">
+    <div class="modal-content">
+        <div class="modal-header">
+            <h3 id="eventEditModalTitle">予定の登録・編集</h3>
+            <button class="close-btn" onclick="closeModal('eventEditModal')">&times;</button>
+        </div>
+        <form id="eventForm" onsubmit="saveEvent(event)">
+            <input type="hidden" id="eventId">
+            <div class="form-group">
+                <label>見出し（予定名）*</label>
+                <input type="text" id="eventTitle" required placeholder="例: 1次面接, ES提出期限">
+            </div>
+            <div class="form-group">
+                <label>企業名 *</label>
+                <input type="text" id="eventCompanyName" required placeholder="例: ○○株式会社">
+            </div>
+            <div class="form-group">
+                <label>予定タイプ *</label>
+                <select id="eventType" required>
+                    <option value="説明会">説明会</option>
+                    <option value="確定インターン">確定インターン</option>
+                    <option value="未定インターン">未定インターン</option>
+                    <option value="ES締切">ES締切</option>
+                    <option value="テスト締切">テスト締切</option>
+                    <option value="面接">面接</option>
+                    <option value="本選考">本選考</option>
+                </select>
+            </div>
+            <div class="form-group">
+                <label>開始時間 *</label>
+                <input type="datetime-local" id="eventStart" required>
+            </div>
+            <div class="form-group">
+                <label>終了時間</label>
+                <input type="datetime-local" id="eventEnd">
+            </div>
+            <div class="form-group">
+                <label>場所</label>
+                <input type="text" id="eventLocation" placeholder="オンライン、本社など">
+            </div>
+            <div class="form-group">
+                <label>メモ</label>
+                <textarea id="eventMemo" rows="3"></textarea>
+            </div>
+            <div style="display:flex; justify-content: space-between;">
+                <button type="button" id="deleteEventBtn" style="color:red;" onclick="deleteEvent()">削除</button>
+                <button type="submit" class="btn-primary">登録・保存</button>
+            </div>
+        </form>
+    </div>
+</div>
+
+
+<div id="companyViewModal" class="modal">
+    <div class="modal-content">
+        <div class="modal-header">
+            <h3 id="vCompanyNameHeader">企業詳細</h3>
+            <div>
+                <button class="btn-primary btn-sm" id="goToCompanyEditBtn">編集</button>
+                <button class="close-btn" onclick="closeModal('companyViewModal')">&times;</button>
+            </div>
+        </div>
+        <div>
+            <div class="section-title">基本情報・進捗・志望度</div>
+            <div class="view-row"><div class="view-label">企業名</div><div class="view-value" id="vCompanyName"></div></div>
+            <div class="view-row"><div class="view-label">進捗（選考ステータス）</div><div class="view-value" id="vCompanyStatus"></div></div>
+            <div class="view-row"><div class="view-label">業界</div><div class="view-value" id="vCompanyIndustry"></div></div>
+            <div class="view-row"><div class="view-label">志望度</div><div class="view-value" id="vCompanyTarget"></div></div>
+
+            <div class="section-title">マイページ</div>
+            <div class="view-row"><div class="view-label">マイページURL</div><div class="view-value" id="vCompanyUrl"></div></div>
+            <div class="view-row"><div class="view-label">マイページID</div><div class="view-value" id="vCompanyMypageId"></div></div>
+
+            <div class="section-title">詳細条件・メモ</div>
+            <div class="view-row"><div class="view-label">参加状況</div><div class="view-value" id="vCompanyInterventions"></div></div>
+            <div class="view-row"><div class="view-label">現在の志望状況</div><div class="view-value" id="vCompanyCurrentStatus"></div></div>
+            <div class="view-row"><div class="view-label">給与</div><div class="view-value" id="vCompanySalary"></div></div>
+            <div class="view-row"><div class="view-label">休日</div><div class="view-value" id="vCompanyHoliday"></div></div>
+            <div class="view-row"><div class="view-label">その他の条件</div><div class="view-value" id="vCompanyOtherConditions"></div></div>
+            <div class="view-row"><div class="view-label">オープンワークの印象</div><div class="view-value" id="vCompanyOpenwork"></div></div>
+            <div class="view-row"><div class="view-label">その他メモ</div><div class="view-value" id="vCompanyMemo"></div></div>
+        </div>
+    </div>
+</div>
+
+<div id="companyEditModal" class="modal">
+    <div class="modal-content">
+        <div class="modal-header">
+            <h3>🏢 企業情報の登録・編集</h3>
+            <button class="close-btn" onclick="closeModal('companyEditModal')">&times;</button>
+        </div>
+        <form id="companyForm" onsubmit="saveCompany(event)">
+            <input type="hidden" id="companyId">
+            
+            <div class="section-title">基本情報</div>
+            <div class="form-group">
+                <label>企業名 *</label>
+                <input type="text" id="companyName" required>
+            </div>
+            <div class="form-group">
+                <label>進捗（選考ステータス）</label>
+                <select id="companyStatus">
+                    <option value="未エントリー">未エントリー</option>
+                    <option value="ES提出済">ES提出済</option>
+                    <option value="サマーインターン確定">サマーインターン確定</option>
+                    <option value="サマー落ち">サマー落ち</option>
+                    <option value="面接中">面接中</option>
+                    <option value="内定">内定</option>
+                    <option value="お見送り">お見送り</option>
+                </select>
+            </div>
+            <div class="form-group">
+                <label>業界</label>
+                <input type="text" id="companyIndustry" placeholder="例: IT, 製造, 金融">
+            </div>
+            <div class="form-group">
+                <label>志望度</label>
+                <select id="companyTarget">
+                    <option value="第1志望">第1志望</option>
+                    <option value="第2志望">第2志望</option>
+                    <option value="第3志望以下">第3志望以下</option>
+                </select>
+            </div>
+
+            <div class="section-title">マイページ</div>
+            <div class="form-group">
+                <label>マイページURL</label>
+                <input type="url" id="companyUrl" placeholder="https://mypage.example.com">
+            </div>
+            <div class="form-group">
+                <label>マイページID</label>
+                <input type="text" id="companyMypageId" placeholder="IDやログインコード">
+            </div>
+
+            <div class="section-title">詳細条件・メモ</div>
+            <div class="form-group">
+                <label>参加状況</label>
+                <input type="text" id="companyInterventions" placeholder="例: 夏インターン参加済">
+            </div>
+            <div class="form-group">
+                <label>現在の志望状況</label>
+                <textarea id="companyCurrentStatus" rows="2"></textarea>
+            </div>
+            <div class="form-group">
+                <label>給与</label>
+                <input type="text" id="companySalary" placeholder="例: 初任給25万円">
+            </div>
+            <div class="form-group">
+                <label>休日</label>
+                <input type="text" id="companyHoliday" placeholder="例: 完全週休2日（土日祝）">
+            </div>
+            <div class="form-group">
+                <label>その他の条件</label>
+                <textarea id="companyOtherConditions" rows="2"></textarea>
+            </div>
+            <div class="form-group">
+                <label>オープンワークの印象</label>
+                <textarea id="companyOpenwork" rows="2"></textarea>
+            </div>
+            <div class="form-group">
+                <label>その他メモ</label>
+                <textarea id="companyMemo" rows="3"></textarea>
+            </div>
+
+            <div style="display:flex; justify-content: space-between; margin-top: 15px;">
+                <button type="button" id="deleteCompanyBtn" style="color:red;" onclick="deleteCompany()">削除</button>
+                <button type="submit" class="btn-primary">登録・保存</button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<script>
+    // --- 初期サンプルデータ定義 (綺麗に動く5社のみ配置) ---
+    const SAMPLE_COMPANIES = [
+        { id: "c1", name: "未来テック株式会社", status: "面接中", industry: "IT・通信", target: "第1志望", mypageUrl: "https://job.axol.jp/sample-tech", mypageId: "tech12345", interventions: "1dayインターン参加", currentStatus: "面接の手応えあり。本命。", salary: "26万円", holiday: "土日祝休み", otherConditions: "リモート可", openwork: "風通しが良い、評価主義", memo: "次回二次面接。逆質問を要準備。" },
+        { id: "c2", name: "日本商事株式会社", status: "ES提出済", industry: "総合商社", target: "第1志望", mypageUrl: "", mypageId: "", interventions: "なし", currentStatus: "結果待ち。", salary: "28万円", holiday: "完全週休2日", otherConditions: "海外駐在あり", openwork: "激務だが高収入", memo: "ESは自信あり。" },
+        { id: "c3", name: "新都心金融銀行", status: "サマーインターン確定", industry: "金融", target: "第2志望", mypageUrl: "https://job.axol.jp/sample-bank", mypageId: "bank9999", interventions: "3daysインターン参加決定", currentStatus: "インターン優遇ルート狙い", salary: "24万円", holiday: "土日祝", otherConditions: "住宅手当厚い", openwork: "堅実、年功序列", memo: "ES締切クリア" },
+        { id: "c4", name: "グローバルデザイン", status: "サマー落ち", industry: "広告・デザイン", target: "第2志望", mypageUrl: "", mypageId: "", interventions: "サマー選考落ち", currentStatus: "本選考で再チャレンジしたい", salary: "23万円", holiday: "裁量労働制", otherConditions: "副業OK", openwork: "若い人が多い", memo: "ポートフォリオ提出が必要" },
+        { id: "c5", name: "大手製造マニュファクチャ", status: "お見送り", industry: "メーカー", target: "第3志望以下", mypageUrl: "", mypageId: "", interventions: "なし", currentStatus: "1次選考で落選", salary: "22万円", holiday: "工場カレンダーに準ずる", otherConditions: "社宅あり", openwork: "安定しているが古い体質", memo: "切り替えていく。" }
+    ];
+
+    const todayStr = new Date().toISOString().split('T')[0];
+    const in3Days = new Date(Date.now() + 3*24*60*60*1000).toISOString().split('T')[0];
+    const in5Days = new Date(Date.now() + 5*24*60*60*1000).toISOString().split('T')[0];
+
+    const SAMPLE_EVENTS = [
+        { id: "e1", title: "1次面接（WEB）", companyName: "未来テック株式会社", type: "面接", start: `${todayStr}T14:00`, end: `${todayStr}T15:00`, location: "Zoom", memo: "自己紹介とガクチカ深掘り対策" },
+        { id: "e2", title: "エントリーシート提出期限", companyName: "新都心金融銀行", type: "ES締切", start: `${in3Days}T23:59`, end: "", location: "マイページ", memo: "志望動機のブラッシュアップ必須" },
+        { id: "e3", title: "WEBテスト（SPI）締切", companyName: "日本商事株式会社", type: "テスト締切", start: `${in5Days}T18:00`, end: "", location: "自宅受験", memo: "言語・非言語の復習" },
+        { id: "e4", title: "サマーインターンシップ説明会", companyName: "未来テック株式会社", type: "説明会", start: `${todayStr}T11:00`, end: `${todayStr}T12:00`, location: "Teams", memo: "服装自由" }
+    ];
+
+    // ローカルストレージから取得
+    let companies = JSON.parse(localStorage.getItem('shukatsu_companies')) || SAMPLE_COMPANIES;
+    let events = JSON.parse(localStorage.getItem('shukatsu_events')) || SAMPLE_EVENTS;
+
+    // === 不要な架空企業データの強制クリーンアップ処理（「青空商事株式会社」を完全一致に修正） ===
+    const REMOVE_TARGETS = [
+        "フロンティアシステムズ", 
+        "日本キャリア出版", 
+        "青空商事株式会社", 
+        "青空商事株式会社i", 
+        "グローバルコンサルティング", 
+        "未来テクノロジー株式会社"
+    ];
+
+    // 企業リストから完全削除
+    companies = companies.filter(c => !REMOVE_TARGETS.includes(c.name));
+    // それらの企業に紐づいていた古い予定データも完全クリーンアップ
+    events = events.filter(e => !REMOVE_TARGETS.includes(e.companyName));
+
+    // 一時的に非表示にするイベントID用（セッション単位）
+    let dismissedTodoIds = [];
+    let currentCalendarDate = new Date();
+
+    window.onload = function() {
+        saveToLocalStorage(); // クリーンアップした状態のデータをストレージへ強制再保存
+        initDashboard();
+    };
+
+    function saveToLocalStorage() {
+        localStorage.setItem('shukatsu_companies', JSON.stringify(companies));
+        localStorage.setItem('shukatsu_events', JSON.stringify(events));
+    }
+
+    function initDashboard() {
+        renderTodoList();
+        renderCalendar();
+        populateIndustryFilter();
+        renderCompanyTable();
+    }
+
+    // --- 1. 今週やるべきこと ---
+    function renderTodoList() {
+        const todoListEl = document.getElementById('todoList');
+        todoListEl.innerHTML = '';
+
+        const now = new Date();
+        const sevenDaysLater = new Date(now.getTime() + 7 * 24 * 60 * 60 * 1000);
+
+        const filtered = events.filter(e => {
+            if (e.type !== 'ES締切' && e.type !== 'テスト締切') return false;
+            if (dismissedTodoIds.includes(e.id)) return false; 
+            const eventDate = new Date(e.start);
+            return eventDate >= new Date(now.setHours(0,0,0,0)) && eventDate <= sevenDaysLater;
+        }).sort((a, b) => new Date(a.start) - new Date(b.start));
+
+        if (filtered.length === 0) {
+            todoListEl.innerHTML = '<li style="padding:10px; color:#666;">直近7日以内に締切のあるES・テスト予定はありません。</li>';
+            return;
+        }
+
+        filtered.forEach(e => {
+            const li = document.createElement('li');
+            li.className = 'todo-item';
+            const dateStr = new Date(e.start).toLocaleString('ja-JP', {month:'short', day:'numeric', hour:'2-digit', minute:'2-digit'});
+            
+            li.innerHTML = `
+                <div>
+                    <span class="badge type-${e.type}">${e.type}</span>
+                    <strong class="link-text" onclick="openCompanyByName('${e.companyName}')">${e.companyName}</strong> - ${e.title}
+                    <span style="color: #c62828; font-weight: bold; margin-left:15px;">（締切: ${dateStr}）</span>
+                </div>
+                <div>
+                    <button class="btn-sm" onclick="dismissTodo('${e.id}')">✕ 終了</button>
+                </div>
+            `;
+            todoListEl.appendChild(li);
+        });
+    }
+
+    function dismissTodo(eventId) {
+        dismissedTodoIds.push(eventId);
+        renderTodoList();
+    }
+
+    // --- 2. カレンダー機能 (7日均等グリッド仕様) ---
+    function renderCalendar() {
+        const grid = document.getElementById('calendarGrid');
+        const title = document.getElementById('calendarTitle');
+        grid.innerHTML = '';
+
+        const year = currentCalendarDate.getFullYear();
+        const month = currentCalendarDate.getMonth();
+        title.innerText = `${year}年 ${month + 1}月`;
+
+        const daysOfWeek = ['日', '月', '火', '水', '木', '金', '土'];
+        daysOfWeek.forEach(d => {
+            const cell = document.createElement('div');
+            cell.className = 'calendar-cell header-cell';
+            cell.innerText = d;
+            grid.appendChild(cell);
+        });
+
+        const firstDay = new Date(year, month, 1).getDay();
+        const daysInMonth = new Date(year, month + 1, 0).getDate();
+
+        for (let i = 0; i < firstDay; i++) {
+            const cell = document.createElement('div');
+            cell.className = 'calendar-cell';
+            grid.appendChild(cell);
+        }
+
+        for (let day = 1; day <= daysInMonth; day++) {
+            const cell = document.createElement('div');
+            cell.className = 'calendar-cell';
+
+            const dayNum = document.createElement('div');
+            dayNum.className = 'day-num';
+            dayNum.innerText = day;
+            cell.appendChild(dayNum);
+
+            const currentStr = `${year}-${String(month + 1).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
+            const dayEvents = events.filter(e => e.start.startsWith(currentStr));
+
+            dayEvents.forEach(e => {
+                const evEl = document.createElement('div');
+                evEl.className = `calendar-event type-${e.type}`;
+                evEl.innerText = `[${e.companyName}] ${e.title}`;
+                evEl.title = `[${e.companyName}] ${e.title}`;
+                evEl.onclick = (event) => {
+                    event.stopPropagation();
+                    openEventViewModal(e.id);
+                };
+                cell.appendChild(evEl);
+            });
+
+            grid.appendChild(cell);
+        }
+    }
+
+    function prevMonth() { currentCalendarDate.setMonth(currentCalendarDate.getMonth() - 1); renderCalendar(); }
+    function nextMonth() { currentCalendarDate.setMonth(currentCalendarDate.getMonth() + 1); renderCalendar(); }
+
+    // --- 3. 企業一覧機能 ---
+    function populateIndustryFilter() {
+        const filter = document.getElementById('filterIndustry');
+        filter.innerHTML = '<option value="">すべての業界</option>';
+        const industries = [...new Set(companies.map(c => c.industry).filter(Boolean))];
+        industries.forEach(ind => {
+            const opt = document.createElement('option');
+            opt.value = ind; opt.innerText = ind;
+            filter.appendChild(opt);
+        });
+    }
+
+    function renderCompanyTable() {
+        const tbody = document.getElementById('companyTableBody');
+        tbody.innerHTML = '';
+
+        const search = document.getElementById('searchCompany').value.toLowerCase();
+        const status = document.getElementById('filterStatus').value;
+        const industry = document.getElementById('filterIndustry').value;
+        const target = document.getElementById('filterTarget').value;
+
+        const filtered = companies.filter(c => {
+            if (search && !c.name.toLowerCase().includes(search)) return false;
+            if (status && c.status !== status) return false;
+            if (industry && c.industry !== industry) return false;
+            if (target && c.target !== target) return false;
+            return true;
+        });
+
+        filtered.forEach(c => {
+            const compEvents = events.filter(e => e.companyName === c.name)
+                                     .sort((a,b) => new Date(a.start) - new Date(b.start));
+            let nextEventText = "予定なし";
+            if(compEvents.length > 0) {
+                const nextE = compEvents[0];
+                nextEventText = `${nextE.start.split('T')[0]} : ${nextE.title}`;
+            }
+
+            const tr = document.createElement('tr');
+            tr.innerHTML = `
+                <td><strong class="link-text" onclick="openCompanyViewModal('${c.id}')">${c.name}</strong></td>
+                <td><span class="badge" style="background:#eee; border: 1px solid #ccc;">${c.status}</span></td>
+                <td>${c.industry || '-'}</td>
+                <td>${c.target || '-'}</td>
+                <td style="font-size:12px;">${nextEventText}</td>
+                <td>
+                    <button onclick="openCompanyEditModal('${c.id}')">編集</button>
+                </td>
+            `;
+            tbody.appendChild(tr);
+        });
+    }
+
+    function closeModal(modalId) {
+        document.getElementById(modalId).style.display = 'none';
+    }
+
+    // --- 🅰 予定の「ポップアップ表示（閲覧）」制御 ---
+    function openEventViewModal(eventId) {
+        const ev = events.find(e => e.id === eventId);
+        if (!ev) return;
+
+        document.getElementById('vEventTitleHeader').innerText = ev.title;
+        document.getElementById('vEventTitle').innerText = ev.title;
+        document.getElementById('vEventCompanyName').innerText = ev.companyName;
+        document.getElementById('vEventCompanyName').onclick = () => {
+            closeModal('eventViewModal');
+            openCompanyByName(ev.companyName);
+        };
+        document.getElementById('vEventType').innerText = ev.type;
+        document.getElementById('vEventStart').innerText = ev.start.replace('T', ' ');
+        document.getElementById('vEventEnd').innerText = ev.end ? ev.end.replace('T', ' ') : '-';
+        document.getElementById('vEventLocation').innerText = ev.location || '-';
+        document.getElementById('vEventMemo').innerText = ev.memo || '-';
+
+        document.getElementById('goToEventEditBtn').onclick = () => {
+            closeModal('eventViewModal');
+            openEventEditModal(eventId);
+        };
+
+        document.getElementById('eventViewModal').style.display = 'flex';
+    }
+
+    // --- 🅱 予定の「登録・編集」制御 ---
+    function openEventEditModal(eventId) {
+        const form = document.getElementById('eventForm');
+        form.reset();
+        document.getElementById('eventId').value = eventId || '';
+
+        if (eventId) {
+            document.getElementById('eventEditModalTitle').innerText = "予定の編集";
+            document.getElementById('deleteEventBtn').style.display = 'block';
+            const ev = events.find(e => e.id === eventId);
+            if (ev) {
+                document.getElementById('eventTitle').value = ev.title;
+                document.getElementById('eventCompanyName').value = ev.companyName;
+                document.getElementById('eventType').value = ev.type;
+                document.getElementById('eventStart').value = ev.start;
+                document.getElementById('eventEnd').value = ev.end;
+                document.getElementById('eventLocation').value = ev.location;
+                document.getElementById('eventMemo').value = ev.memo;
+            }
+        } else {
+            document.getElementById('eventEditModalTitle').innerText = "新規予定の追加";
+            document.getElementById('deleteEventBtn').style.display = 'none';
+        }
+        document.getElementById('eventEditModal').style.display = 'flex';
+    }
+
+    function saveEvent(e) {
+        e.preventDefault();
+        const id = document.getElementById('eventId').value;
+        const compName = document.getElementById('eventCompanyName').value.trim();
+
+        const eventData = {
+            id: id || 'e_' + Date.now(),
+            title: document.getElementById('eventTitle').value,
+            companyName: compName,
+            type: document.getElementById('eventType').value,
+            start: document.getElementById('eventStart').value,
+            end: document.getElementById('eventEnd').value,
+            location: document.getElementById('eventLocation').value,
+            memo: document.getElementById('eventMemo').value
+        };
+
+        if (id) {
+            const idx = events.findIndex(event => event.id === id);
+            events[idx] = eventData;
+        } else {
+            events.push(eventData);
+        }
+
+        if (!companies.some(c => c.name === compName)) {
+            companies.push({
+                id: 'c_' + Date.now(),
+                name: compName,
+                status: '未エントリー',
+                industry: '', target: '第3志望以下', mypageUrl: '', mypageId: '', interventions: '', currentStatus: '', salary: '', holiday: '', otherConditions: '', openwork: '', memo: ''
+            });
+        }
+
+        saveToLocalStorage();
+        closeModal('eventEditModal');
+        initDashboard();
+    }
+
+    function deleteEvent() {
+        const id = document.getElementById('eventId').value;
+        if(confirm("この予定を削除しますか？")) {
+            events = events.filter(e => e.id !== id);
+            saveToLocalStorage();
+            closeModal('eventEditModal');
+            initDashboard();
+        }
+    }
+
+    // --- 🅲 企業の「ポップアップ表示（閲覧）」制御 ---
+    function openCompanyViewModal(companyId) {
+        const c = companies.find(comp => comp.id === companyId);
+        if (!c) return;
+
+        document.getElementById('vCompanyNameHeader').innerText = c.name;
+        document.getElementById('vCompanyName').innerText = c.name;
+        document.getElementById('vCompanyStatus').innerText = c.status;
+        document.getElementById('vCompanyIndustry').innerText = c.industry || '-';
+        document.getElementById('vCompanyTarget').innerText = c.target || '-';
+        
+        if (c.mypageUrl) {
+            document.getElementById('vCompanyUrl').innerHTML = `<a href="${c.mypageUrl}" target="_blank">${c.mypageUrl}</a>`;
+        } else {
+            document.getElementById('vCompanyUrl').innerText = '-';
+        }
+        document.getElementById('vCompanyMypageId').innerText = c.mypageId || '-';
+
+        document.getElementById('vCompanyInterventions').innerText = c.interventions || '-';
+        document.getElementById('vCompanyCurrentStatus').innerText = c.currentStatus || '-';
+        document.getElementById('vCompanySalary').innerText = c.salary || '-';
+        document.getElementById('vCompanyHoliday').innerText = c.holiday || '-';
+        document.getElementById('vCompanyOtherConditions').innerText = c.otherConditions || '-';
+        document.getElementById('vCompanyOpenwork').innerText = c.openwork || '-';
+        document.getElementById('vCompanyMemo').innerText = c.memo || '-';
+
+        document.getElementById('goToCompanyEditBtn').onclick = () => {
+            closeModal('companyViewModal');
+            openCompanyEditModal(companyId);
+        };
+
+        document.getElementById('companyViewModal').style.display = 'flex';
+    }
+
+    function openCompanyByName(name) {
+        const c = companies.find(comp => comp.name === name);
+        if (c) {
+            openCompanyViewModal(c.id);
+        } else {
+            alert("該当する企業情報が見つかりませんでした。");
+        }
+    }
+
+    // --- 🅳 企業の「登録・編集」制御 ---
+    function openCompanyEditModal(companyId) {
+        const form = document.getElementById('companyForm');
+        form.reset();
+        document.getElementById('companyId').value = companyId || '';
+
+        if (companyId) {
+            document.getElementById('deleteCompanyBtn').style.display = 'block';
+            const c = companies.find(comp => comp.id === companyId);
+            if (c) {
+                document.getElementById('companyName').value = c.name;
+                document.getElementById('companyStatus').value = c.status;
+                document.getElementById('companyIndustry').value = c.industry;
+                document.getElementById('companyTarget').value = c.target;
+                document.getElementById('companyUrl').value = c.mypageUrl || '';
+                document.getElementById('companyMypageId').value = c.mypageId || '';
+                document.getElementById('companyInterventions').value = c.interventions || '';
+                document.getElementById('companyCurrentStatus').value = c.currentStatus || '';
+                document.getElementById('companySalary').value = c.salary || '';
+                document.getElementById('companyHoliday').value = c.holiday || '';
+                document.getElementById('companyOtherConditions').value = c.otherConditions || '';
+                document.getElementById('companyOpenwork').value = c.openwork || '';
+                document.getElementById('companyMemo').value = c.memo || '';
+            }
+        } else {
+            document.getElementById('deleteCompanyBtn').style.display = 'none';
+        }
+        document.getElementById('companyEditModal').style.display = 'flex';
+    }
+
+    function saveCompany(e) {
+        e.preventDefault();
+        const id = document.getElementById('companyId').value;
+        const newName = document.getElementById('companyName').value.trim();
+
+        let oldName = "";
+        if(id) {
+            const oldC = companies.find(comp => comp.id === id);
+            if(oldC) oldName = oldC.name;
+        }
+
+        const compData = {
+            id: id || 'c_' + Date.now(),
+            name: newName,
+            status: document.getElementById('companyStatus').value,
+            industry: document.getElementById('companyIndustry').value,
+            target: document.getElementById('companyTarget').value,
+            mypageUrl: document.getElementById('companyUrl').value,
+            mypageId: document.getElementById('companyMypageId').value,
+            interventions: document.getElementById('companyInterventions').value,
+            currentStatus: document.getElementById('companyCurrentStatus').value,
+            salary: document.getElementById('companySalary').value,
+            holiday: document.getElementById('companyHoliday').value,
+            otherConditions: document.getElementById('companyOtherConditions').value,
+            openwork: document.getElementById('companyOpenwork').value,
+            memo: document.getElementById('companyMemo').value
+        };
+
+        if (id) {
+            const idx = companies.findIndex(comp => comp.id === id);
+            companies[idx] = compData;
+            
+            if(oldName && oldName !== newName) {
+                events = events.map(ev => {
+                    if(ev.companyName === oldName) ev.companyName = newName;
+                    return ev;
+                });
+            }
+        } else {
+            companies.push(compData);
+        }
+
+        saveToLocalStorage();
+        closeModal('companyEditModal');
+        initDashboard();
+    }
+
+    function deleteCompany() {
+        const id = document.getElementById('companyId').value;
+        const c = companies.find(comp => comp.id === id);
+        if(c && confirm(`「${c.name}」を削除しますか？（紐づく予定は自動削除されません）`)) {
+            companies = companies.filter(comp => comp.id !== id);
+            saveToLocalStorage();
+            closeModal('companyEditModal');
+            initDashboard();
+        }
+    }
+</script>
+</body>
+</html>
