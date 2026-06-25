@@ -13,7 +13,7 @@
             --primary-color: #007bff;
             --success-color: #28a745;
             
-            /* ご指定の予定タイプ別カラー（見やすさのため淡いトーンに調整） */
+            /* 予定タイプ別カラー */
             --color-es-test: #ffcdd2;    /* ES締切・テスト締切 ⇒ 赤 */
             --color-intern-f: #ffe0b2;   /* 確定インターン ⇒ オレンジ */
             --color-intern-u: #b3e5fc;   /* 未定インターン ⇒ 水色 */
@@ -92,7 +92,7 @@
             color: #333;
         }
 
-        /* カレンダー（7日間一律の幅を保つためのグリッド設定） */
+        /* カレンダー */
         .calendar-header {
             display: flex;
             justify-content: space-between;
@@ -101,7 +101,7 @@
         }
         .calendar-grid {
             display: grid;
-            grid-template-columns: repeat(7, 1fr); /* 常に7等分 */
+            grid-template-columns: repeat(7, 1fr);
             border-top: 1px solid var(--border-color);
             border-left: 1px solid var(--border-color);
             table-layout: fixed;
@@ -114,7 +114,7 @@
             border-bottom: 1px solid var(--border-color);
             padding: 5px;
             box-sizing: border-box;
-            overflow: hidden; /* セル幅を固定するためはみ出しを防ぐ */
+            overflow: hidden;
         }
         .calendar-cell.header-cell {
             background: #eee;
@@ -125,7 +125,6 @@
         }
         .day-num { font-weight: bold; margin-bottom: 5px; }
         
-        /* 予定ボタンのテキスト溢れ対策 */
         .calendar-event {
             font-size: 11px;
             padding: 2px 4px;
@@ -140,7 +139,6 @@
             color: #222;
         }
 
-        /* ご指定のカラー定義マッピング */
         .type-ES締切, .type-テスト締切 { background-color: var(--color-es-test); }
         .type-確定インターン { background-color: var(--color-intern-f); }
         .type-未定インターン { background-color: var(--color-intern-u); }
@@ -176,7 +174,7 @@
             text-decoration: underline;
         }
 
-        /* モーダル共通・ポップアップ */
+        /* モーダル共通 */
         .modal {
             display: none;
             position: fixed;
@@ -228,7 +226,15 @@
             border-radius: 4px;
         }
         
-        /* ポップアップ表示用（閲覧モード）のスタイル */
+        /* 条件付き入力エリアの隠し表示用 */
+        .hidden-field {
+            display: none;
+            margin-top: 8px;
+            background: #fdfffe;
+            border-left: 3px solid var(--success-color);
+            padding-left: 10px;
+        }
+        
         .view-row {
             margin-bottom: 14px;
             border-bottom: 1px dashed #eee;
@@ -255,7 +261,6 @@
             font-size: 15px;
         }
 
-        /* バックアップエリア */
         .backup-zone {
             display: flex;
             gap: 15px;
@@ -277,12 +282,13 @@
 <div class="container">
     <h1>💼 就活管理くん</h1>
 
+    <!-- 1. 今週やるべきことエリア -->
     <div class="card">
         <h2>⚠️ 今週やるべきこと（直近7日以内のES・テスト締切）</h2>
-        <ul id="todoList" class="todo-list">
-            </ul>
+        <ul id="todoList" class="todo-list"></ul>
     </div>
 
+    <!-- 2. カレンダーエリア -->
     <div class="card">
         <div class="calendar-header">
             <div>
@@ -292,16 +298,17 @@
             </div>
             <button class="btn-primary" onclick="openEventEditModal(null)">＋ 予定を追加</button>
         </div>
-        <div class="calendar-grid" id="calendarGrid">
-            </div>
+        <div class="calendar-grid" id="calendarGrid"></div>
     </div>
 
+    <!-- 3. 企業別一覧ページエリア -->
     <div class="card">
         <div class="calendar-header">
             <h2>🏢 登録企業一覧</h2>
             <button class="btn-primary" onclick="openCompanyEditModal(null)">＋ 企業を追加</button>
         </div>
         
+        <!-- 検索・分類フィルター -->
         <div class="filter-bar">
             <input type="text" id="searchCompany" placeholder="企業名検索..." oninput="renderCompanyTable()">
             <select id="filterStatus" onchange="renderCompanyTable()">
@@ -313,6 +320,7 @@
                 <option value="面接中">面接中</option>
                 <option value="内定">内定</option>
                 <option value="お見送り">お見送り</option>
+                <option value="その他">その他（自由記述の企業）</option>
             </select>
             <select id="filterIndustry" onchange="renderCompanyTable()">
                 <option value="">すべての業界</option>
@@ -336,11 +344,11 @@
                     <th>操作</th>
                 </tr>
             </thead>
-            <tbody id="companyTableBody">
-                </tbody>
+            <tbody id="companyTableBody"></tbody>
         </table>
     </div>
 
+    <!-- 4. バックアップ＆復元エリア -->
     <div class="card">
         <h2>🛡️ データのバックアップと復元（エクセル連携）</h2>
         <p style="font-size:13px; color:#666; margin-bottom:15px;">
@@ -361,6 +369,9 @@
     </div>
 </div>
 
+<!-- ================= モーダルエリア ================= -->
+
+<!-- 🅰 予定の「ポップアップ表示（閲覧）」モーダル -->
 <div id="eventViewModal" class="modal">
     <div class="modal-content">
         <div class="modal-header">
@@ -382,6 +393,7 @@
     </div>
 </div>
 
+<!-- 🅱 予定の「登録・編集」モーダル -->
 <div id="eventEditModal" class="modal">
     <div class="modal-content">
         <div class="modal-header">
@@ -434,7 +446,7 @@
     </div>
 </div>
 
-
+<!-- 🅲 企業の「ポップアップ表示（閲覧）」モーダル -->
 <div id="companyViewModal" class="modal">
     <div class="modal-content">
         <div class="modal-header">
@@ -456,7 +468,7 @@
             <div class="view-row"><div class="view-label">マイページID</div><div class="view-value" id="vCompanyMypageId"></div></div>
 
             <div class="section-title">詳細条件・メモ</div>
-            <div class="view-row"><div class="view-label">参加状況</div><div class="view-value" id="vCompanyInterventions"></div></div>
+            <div class="view-row"><div class="view-label">参加状況（複数行）</div><div class="view-value" id="vCompanyInterventions"></div></div>
             <div class="view-row"><div class="view-label">現在の志望状況</div><div class="view-value" id="vCompanyCurrentStatus"></div></div>
             <div class="view-row"><div class="view-label">給与</div><div class="view-value" id="vCompanySalary"></div></div>
             <div class="view-row"><div class="view-label">休日</div><div class="view-value" id="vCompanyHoliday"></div></div>
@@ -467,6 +479,7 @@
     </div>
 </div>
 
+<!-- 🅳 企業の「登録・編集」モーダル -->
 <div id="companyEditModal" class="modal">
     <div class="modal-content">
         <div class="modal-header">
@@ -483,7 +496,7 @@
             </div>
             <div class="form-group">
                 <label>進捗（選考ステータス）</label>
-                <select id="companyStatus">
+                <select id="companyStatus" onchange="toggleCustomStatusField()">
                     <option value="未エントリー">未エントリー</option>
                     <option value="ES提出済">ES提出済</option>
                     <option value="サマーインターン確定">サマーインターン確定</option>
@@ -491,7 +504,13 @@
                     <option value="面接中">面接中</option>
                     <option value="内定">内定</option>
                     <option value="お見送り">お見送り</option>
+                    <option value="その他">その他（自由記述）</option>
                 </select>
+                <!-- 「その他」を選んだ時だけJavaScriptで自動出現する自由記述エリア -->
+                <div id="customStatusGroup" class="hidden-field">
+                    <label style="color:var(--success-color); font-size:12px;">具体的な進捗内容を入力してください：</label>
+                    <input type="text" id="companyCustomStatus" placeholder="例: 秋冬インターン選考中、早期選考案内待ち など">
+                </div>
             </div>
             <div class="form-group">
                 <label>業界</label>
@@ -518,8 +537,9 @@
 
             <div class="section-title">詳細条件・メモ</div>
             <div class="form-group">
-                <label>参加状況</label>
-                <input type="text" id="companyInterventions" placeholder="例: 夏インターン参加済">
+                <label>参加状況（複数行入力可能）</label>
+                <!-- 1行のinputから複数行のtextareaに修正 -->
+                <textarea id="companyInterventions" rows="4" placeholder="例：&#13;2026/06/01: 1dayインターン参加済&#13;2026/06/15: 3daysインターン通過"></textarea>
             </div>
             <div class="form-group">
                 <label>現在の志望状況</label>
@@ -555,34 +575,21 @@
 </div>
 
 <script>
-    // --- 初期サンプルデータ定義 (綺麗に動く5社のみ配置) ---
+    // --- 初期サンプルデータ定義 ---
     const SAMPLE_COMPANIES = [
-        { id: "c1", name: "未来テック株式会社", status: "面接中", industry: "IT・通信", target: "第1志望", mypageUrl: "https://job.axol.jp/sample-tech", mypageId: "tech12345", interventions: "1dayインターン参加", currentStatus: "面接の手応えあり。本命。", salary: "26万円", holiday: "土日祝休み", otherConditions: "リモート可", openwork: "風通しが良い、評価主義", memo: "次回二次面接。逆質問を要準備。" },
-        { id: "c2", name: "日本商事株式会社", status: "ES提出済", industry: "総合商社", target: "第1志望", mypageUrl: "", mypageId: "", interventions: "なし", currentStatus: "結果待ち。", salary: "28万円", holiday: "完全週休2日", otherConditions: "海外駐在あり", openwork: "激務だが高収入", memo: "ESは自信あり。" },
-        { id: "c3", name: "新都心金融銀行", status: "サマーインターン確定", industry: "金融", target: "第2志望", mypageUrl: "https://job.axol.jp/sample-bank", mypageId: "bank9999", interventions: "3daysインターン参加決定", currentStatus: "インターン優遇ルート狙い", salary: "24万円", holiday: "土日祝", otherConditions: "住宅手当厚い", openwork: "堅実、年功序列", memo: "ES締切クリア" },
-        { id: "c4", name: "グローバルデザイン", status: "サマー落ち", industry: "広告・デザイン", target: "第2志望", mypageUrl: "", mypageId: "", interventions: "サマー選考落ち", currentStatus: "本選考で再チャレンジしたい", salary: "23万円", holiday: "裁量労働制", otherConditions: "副業OK", openwork: "若い人が多い", memo: "ポートフォリオ提出が必要" },
-        { id: "c5", name: "大手製造マニュファクチャ", status: "お見送り", industry: "メーカー", target: "第3志望以下", mypageUrl: "", mypageId: "", interventions: "なし", currentStatus: "1次選考で落選", salary: "22万円", holiday: "工場カレンダーに準ずる", otherConditions: "社宅あり", openwork: "安定しているが古い体質", memo: "切り替えていく。" }
+        { id: "c1", name: "未来テック株式会社", status: "面接中", customStatus: "", industry: "IT・通信", target: "第1志望", mypageUrl: "https://job.axol.jp/sample-tech", mypageId: "tech12345", interventions: "6/10 1day参加\n6/20 現場社員座談会参加", currentStatus: "面接の手応えあり。本命。", salary: "26万円", holiday: "土日祝休み", otherConditions: "リモート可", openwork: "風通しが良い、評価主義", memo: "次回二次面接。逆質問を要準備。" },
+        { id: "c2", name: "日本商事株式会社", status: "ES提出済", customStatus: "", industry: "総合商社", target: "第1志望", mypageUrl: "", mypageId: "", interventions: "インターン未参加", currentStatus: "結果待ち。", salary: "28万円", holiday: "完全週休2日", otherConditions: "海外駐在あり", openwork: "激務だが高収入", memo: "ESは自信あり。" },
+        { id: "c3", name: "新都心金融銀行", status: "その他", customStatus: "秋冬特別選考ルート", industry: "金融", target: "第2志望", mypageUrl: "https://job.axol.jp/sample-bank", mypageId: "bank9999", interventions: "3daysインターン参加完了\n優秀者メンター付きに選出", currentStatus: "インターン優遇ルート狙い", salary: "24万円", holiday: "土日祝", otherConditions: "住宅手当厚い", openwork: "堅実、年功序列", memo: "ES締切クリア" }
     ];
 
     const todayStr = new Date().toISOString().split('T')[0];
-    const in3Days = new Date(Date.now() + 3*24*60*60*1000).toISOString().split('T')[0];
-    const in5Days = new Date(Date.now() + 5*24*60*60*1000).toISOString().split('T')[0];
-
     const SAMPLE_EVENTS = [
-        { id: "e1", title: "1次面接（WEB）", companyName: "未来テック株式会社", type: "面接", start: `${todayStr}T14:00`, end: `${todayStr}T15:00`, location: "Zoom", memo: "自己紹介とガクチカ深掘り対策" },
-        { id: "e2", title: "エントリーシート提出期限", companyName: "新都心金融銀行", type: "ES締切", start: `${in3Days}T23:59`, end: "", location: "マイページ", memo: "志望動機のブラッシュアップ必須" },
-        { id: "e3", title: "WEBテスト（SPI）締切", companyName: "日本商事株式会社", type: "テスト締切", start: `${in5Days}T18:00`, end: "", location: "自宅受験", memo: "言語・非言語の復習" },
-        { id: "e4", title: "サマーインターンシップ説明会", companyName: "未来テック株式会社", type: "説明会", start: `${todayStr}T11:00`, end: `${todayStr}T12:00`, location: "Teams", memo: "服装自由" }
+        { id: "e1", title: "1次面接（WEB）", companyName: "未来テック株式会社", type: "面接", start: `${todayStr}T14:00`, end: `${todayStr}T15:00`, location: "Zoom", memo: "自己紹介とガクチカ深掘り対策" }
     ];
 
     // ローカルストレージから取得
     let companies = JSON.parse(localStorage.getItem('shukatsu_companies')) || SAMPLE_COMPANIES;
     let events = JSON.parse(localStorage.getItem('shukatsu_events')) || SAMPLE_EVENTS;
-
-    // 架空企業自動お掃除リスト（以前の残骸が完全消去されるおまじない）
-    const REMOVE_TARGETS = ["フロンティアシステムズ", "日本キャリア出版", "青空商事株式会社", "青空商事株式会社i", "グローバルコンサルティング", "未来テクノロジー株式会社"];
-    companies = companies.filter(c => !REMOVE_TARGETS.includes(c.name));
-    events = events.filter(e => !REMOVE_TARGETS.includes(e.companyName));
 
     let dismissedTodoIds = [];
     let currentCalendarDate = new Date();
@@ -602,6 +609,18 @@
         renderCalendar();
         populateIndustryFilter();
         renderCompanyTable();
+    }
+
+    // --- 「その他」自由記述フィールドの表示制御 ---
+    function toggleCustomStatusField() {
+        const statusSelect = document.getElementById('companyStatus');
+        const customField = document.getElementById('customStatusGroup');
+        if (statusSelect.value === 'その他') {
+            customField.style.display = 'block';
+        } else {
+            customField.style.display = 'none';
+            document.getElementById('companyCustomStatus').value = '';
+        }
     }
 
     // --- 1. 今週やるべきこと ---
@@ -691,13 +710,23 @@
         const tbody = document.getElementById('companyTableBody');
         tbody.innerHTML = '';
         const search = document.getElementById('searchCompany').value.toLowerCase();
-        const status = document.getElementById('filterStatus').value;
+        const statusFilter = document.getElementById('filterStatus').value;
         const industry = document.getElementById('filterIndustry').value;
         const target = document.getElementById('filterTarget').value;
 
         companies.filter(c => {
             if (search && !c.name.toLowerCase().includes(search)) return false;
-            if (status && c.status !== status) return false;
+            
+            // 進捗フィルターの条件ロジック
+            if (statusFilter) {
+                if (statusFilter === 'その他') {
+                    // フィルターで「その他」が選ばれたときは、statusが「その他」のデータを一括で集約して表示
+                    if (c.status !== 'その他') return false;
+                } else {
+                    if (c.status !== statusFilter) return false;
+                }
+            }
+            
             if (industry && c.industry !== industry) return false;
             if (target && c.target !== target) return false;
             return true;
@@ -706,10 +735,13 @@
             let nextEventText = "予定なし";
             if(compEvents.length > 0) nextEventText = `${compEvents[0].start.split('T')[0]} : ${compEvents[0].title}`;
 
+            // 表示する進捗テキストの決定（「その他」なら自由記述内容を、それ以外なら選択肢をそのまま表示）
+            const displayStatus = (c.status === 'その他' && c.customStatus) ? c.customStatus : c.status;
+
             const tr = document.createElement('tr');
             tr.innerHTML = `
                 <td><strong class="link-text" onclick="openCompanyViewModal('${c.id}')">${c.name}</strong></td>
-                <td><span class="badge" style="background:#eee; border: 1px solid #ccc;">${c.status}</span></td>
+                <td><span class="badge" style="background:#eee; border: 1px solid #ccc;">${displayStatus}</span></td>
                 <td>${c.industry || '-'}</td>
                 <td>${c.target || '-'}</td>
                 <td style="font-size:12px;">${nextEventText}</td>
@@ -721,7 +753,6 @@
 
     function closeModal(modalId) { document.getElementById(modalId).style.display = 'none'; }
 
-    // モーダル表示用JS群（中略・処理ロジック維持）
     function openEventViewModal(eventId) {
         const ev = events.find(e => e.id === eventId); if (!ev) return;
         document.getElementById('vEventTitleHeader').innerText = ev.title;
@@ -760,7 +791,7 @@
         const eventData = { id: id || 'e_' + Date.now(), title: document.getElementById('eventTitle').value, companyName: compName, type: document.getElementById('eventType').value, start: document.getElementById('eventStart').value, end: document.getElementById('eventEnd').value, location: document.getElementById('eventLocation').value, memo: document.getElementById('eventMemo').value };
         if (id) { const idx = events.findIndex(event => event.id === id); events[idx] = eventData; } else { events.push(eventData); }
         if (!companies.some(c => c.name === compName)) {
-            companies.push({ id: 'c_' + Date.now(), name: compName, status: '未エントリー', industry: '', target: '第3志望以下', mypageUrl: '', mypageId: '', interventions: '', currentStatus: '', salary: '', holiday: '', otherConditions: '', openwork: '', memo: '' });
+            companies.push({ id: 'c_' + Date.now(), name: compName, status: '未エントリー', customStatus: '', industry: '', target: '第3志望以下', mypageUrl: '', mypageId: '', interventions: '', currentStatus: '', salary: '', holiday: '', otherConditions: '', openwork: '', memo: '' });
         }
         saveToLocalStorage(); closeModal('eventEditModal'); initDashboard();
     }
@@ -773,9 +804,19 @@
     function openCompanyViewModal(companyId) {
         const c = companies.find(comp => comp.id === companyId); if (!c) return;
         document.getElementById('vCompanyNameHeader').innerText = c.name; document.getElementById('vCompanyName').innerText = c.name;
-        document.getElementById('vCompanyStatus').innerText = c.status; document.getElementById('vCompanyIndustry').innerText = c.industry || '-'; document.getElementById('vCompanyTarget').innerText = c.target || '-';
+        
+        // 詳細ポップアップの進捗表示判定
+        const finalStatusText = (c.status === 'other' || c.status === 'その他') ? `その他 (${c.customStatus || '未入力'})` : c.status;
+        document.getElementById('vCompanyStatus').innerText = finalStatusText; 
+        
+        document.getElementById('vCompanyIndustry').innerText = c.industry || '-'; 
+        document.getElementById('vCompanyTarget').innerText = c.target || '-';
         if (c.mypageUrl) { document.getElementById('vCompanyUrl').innerHTML = `<a href="${c.mypageUrl}" target="_blank">${c.mypageUrl}</a>`; } else { document.getElementById('vCompanyUrl').innerText = '-'; }
-        document.getElementById('vCompanyMypageId').innerText = c.mypageId || '-'; document.getElementById('vCompanyInterventions').innerText = c.interventions || '-';
+        document.getElementById('vCompanyMypageId').innerText = c.mypageId || '-'; 
+        
+        // 参加状況を表示（改行コードを保持したまま表示されます）
+        document.getElementById('vCompanyInterventions').innerText = c.interventions || '-';
+        
         document.getElementById('vCompanyCurrentStatus').innerText = c.currentStatus || '-'; document.getElementById('vCompanySalary').innerText = c.salary || '-';
         document.getElementById('vCompanyHoliday').innerText = c.holiday || '-'; document.getElementById('vCompanyOtherConditions').innerText = c.otherConditions || '-';
         document.getElementById('vCompanyOpenwork').innerText = c.openwork || '-'; document.getElementById('vCompanyMemo').innerText = c.memo || '-';
@@ -787,24 +828,55 @@
 
     function openCompanyEditModal(companyId) {
         const form = document.getElementById('companyForm'); form.reset(); document.getElementById('companyId').value = companyId || '';
+        
         if (companyId) {
             document.getElementById('deleteCompanyBtn').style.display = 'block'; const c = companies.find(comp => comp.id === companyId);
             if (c) {
-                document.getElementById('companyName').value = c.name; document.getElementById('companyStatus').value = c.status;
-                document.getElementById('companyIndustry').value = c.industry; document.getElementById('companyTarget').value = c.target;
-                document.getElementById('companyUrl').value = c.mypageUrl || ''; document.getElementById('companyMypageId').value = c.mypageId || '';
-                document.getElementById('companyInterventions').value = c.interventions || ''; document.getElementById('companyCurrentStatus').value = c.currentStatus || '';
-                document.getElementById('companySalary').value = c.salary || ''; document.getElementById('companyHoliday').value = c.holiday || '';
-                document.getElementById('companyOtherConditions').value = c.otherConditions || ''; document.getElementById('companyOpenwork').value = c.openwork || ''; document.getElementById('companyMemo').value = c.memo || '';
+                document.getElementById('companyName').value = c.name; 
+                document.getElementById('companyStatus').value = c.status;
+                document.getElementById('companyCustomStatus').value = c.customStatus || '';
+                document.getElementById('companyIndustry').value = c.industry; 
+                document.getElementById('companyTarget').value = c.target;
+                document.getElementById('companyUrl').value = c.mypageUrl || ''; 
+                document.getElementById('companyMypageId').value = c.mypageId || '';
+                document.getElementById('companyInterventions').value = c.interventions || ''; 
+                document.getElementById('companyCurrentStatus').value = c.currentStatus || '';
+                document.getElementById('companySalary').value = c.salary || ''; 
+                document.getElementById('companyHoliday').value = c.holiday || '';
+                document.getElementById('companyOtherConditions').value = c.otherConditions || ''; 
+                document.getElementById('companyOpenwork').value = c.openwork || ''; 
+                document.getElementById('companyMemo').value = c.memo || '';
             }
-        } else { document.getElementById('deleteCompanyBtn').style.display = 'none'; }
+        } else { 
+            document.getElementById('deleteCompanyBtn').style.display = 'none'; 
+        }
+        
+        toggleCustomStatusField(); // モーダルを開いた時に「その他」の入力欄を出すか初期判定
         document.getElementById('companyEditModal').style.display = 'flex';
     }
 
     function saveCompany(e) {
         e.preventDefault(); const id = document.getElementById('companyId').value; const newName = document.getElementById('companyName').value.trim();
         let oldName = ""; if(id) { const oldC = companies.find(comp => comp.id === id); if(oldC) oldName = oldC.name; }
-        const compData = { id: id || 'c_' + Date.now(), name: newName, status: document.getElementById('companyStatus').value, industry: document.getElementById('companyIndustry').value, target: document.getElementById('companyTarget').value, mypageUrl: document.getElementById('companyUrl').value, mypageId: document.getElementById('companyMypageId').value, interventions: document.getElementById('companyInterventions').value, currentStatus: document.getElementById('companyCurrentStatus').value, salary: document.getElementById('companySalary').value, holiday: document.getElementById('companyHoliday').value, otherConditions: document.getElementById('companyOtherConditions').value, openwork: document.getElementById('companyOpenwork').value, memo: document.getElementById('companyMemo').value };
+        
+        const compData = { 
+            id: id || 'c_' + Date.now(), 
+            name: newName, 
+            status: document.getElementById('companyStatus').value, 
+            customStatus: document.getElementById('companyCustomStatus').value.trim(),
+            industry: document.getElementById('companyIndustry').value, 
+            target: document.getElementById('companyTarget').value, 
+            mypageUrl: document.getElementById('companyUrl').value, 
+            mypageId: document.getElementById('companyMypageId').value, 
+            interventions: document.getElementById('companyInterventions').value, 
+            currentStatus: document.getElementById('companyCurrentStatus').value, 
+            salary: document.getElementById('companySalary').value, 
+            holiday: document.getElementById('companyHoliday').value, 
+            otherConditions: document.getElementById('companyOtherConditions').value, 
+            openwork: document.getElementById('companyOpenwork').value, 
+            memo: document.getElementById('companyMemo').value 
+        };
+        
         if (id) { companies[companies.findIndex(comp => comp.id === id)] = compData; if(oldName && oldName !== newName) { events = events.map(ev => { if(ev.companyName === oldName) ev.companyName = newName; return ev; }); } } else { companies.push(compData); }
         saveToLocalStorage(); closeModal('companyEditModal'); initDashboard();
     }
@@ -814,19 +886,16 @@
         if(c && confirm(`「${c.name}」を削除しますか？（紐づく予定は自動削除されません）`)) { companies = companies.filter(comp => comp.id !== id); saveToLocalStorage(); closeModal('companyEditModal'); initDashboard(); }
     }
 
-    // ================= 新機能: CSV（エクセル連携）バックアップ & 復元システム =================
-
-    // ① 企業データをCSVとして出力（エクセル対応BOM付き）
+    // ================= CSVバックアップ & 復元システム =================
     function exportCompaniesToCSV() {
-        const headers = ["ID", "企業名", "進捗", "業界", "志望度", "マイページURL", "マイページID", "参加状況", "現在の志望状況", "給与", "休日", "その他の条件", "オープンワークの印象", "その他メモ"];
+        const headers = ["ID", "企業名", "進捗", "自由記述進捗", "業界", "志望度", "マイページURL", "マイページID", "参加状況", "現在の志望状況", "給与", "休日", "その他の条件", "オープンワークの印象", "その他メモ"];
         const rows = companies.map(c => [
-            c.id, c.name, c.status, c.industry||"", c.target||"", c.mypageUrl||"", c.mypageId||"", 
+            c.id, c.name, c.status, c.customStatus||"", c.industry||"", c.target||"", c.mypageUrl||"", c.mypageId||"", 
             c.interventions||"", c.currentStatus||"", c.salary||"", c.holiday||"", c.otherConditions||"", c.openwork||"", c.memo||""
         ]);
         downloadCSV("shukatsu_companies_backup.csv", headers, rows);
     }
 
-    // ② 予定データをCSVとして出力
     function exportEventsToCSV() {
         const headers = ["ID", "予定名", "企業名", "予定タイプ", "開始時間", "終了時間", "場所", "メモ"];
         const rows = events.map(e => [
@@ -835,7 +904,6 @@
         downloadCSV("shukatsu_events_backup.csv", headers, rows);
     }
 
-    // 共通CSVダウンロード処理（エクセルの日本語文字化け対策込み）
     function downloadCSV(filename, headers, rows) {
         const escapeCSV = (val) => {
             let text = String(val).replace(/"/g, '""');
@@ -843,71 +911,64 @@
             return text;
         };
         const content = [headers.join(','), ...rows.map(r => r.map(escapeCSV).join(','))].join('\n');
-        const bom = new Uint8Array([0xEF, 0xBB, 0xBF]); // Excel文字化け防止用BOM
+        const bom = new Uint8Array([0xEF, 0xBB, 0xBF]);
         const blob = new Blob([bom, content], { type: "text/csv;charset=utf-8;" });
         const link = document.createElement("a");
         link.href = URL.createObjectURL(blob); link.setAttribute("download", filename);
         document.body.appendChild(link); link.click(); document.body.removeChild(link);
     }
 
-    // ③ CSVファイルを読み込んでデータを復元する処理
     function importCSV(e) {
-        const file = e.target.files[0];
-        if (!file) return;
-
+        const file = e.target.files[0]; if (!file) return;
         const reader = new FileReader();
         reader.onload = function(evt) {
-            const text = evt.target.result;
-            const lines = parseCSVText(text);
+            const text = evt.target.result; const lines = parseCSVText(text);
             if (lines.length < 2) { alert("有効なCSVファイルではありません。"); return; }
-
             const headers = lines[0];
             
-            // 企業データの復元判定
             if (headers.includes("企業名") && headers.includes("進捗")) {
                 if(!confirm("インポートしたファイルで【登録企業一覧】を上書きしますか？")) return;
-                companies = lines.slice(1).filter(l => l.length >= 2 && l[1]).map(l => ({
-                    id: l[0] || 'c_' + Date.now() + Math.random(), name: l[1], status: l[2] || "未エントリー", 
-                    industry: l[3], target: l[4], mypageUrl: l[5], mypageId: l[6], interventions: l[7], 
-                    currentStatus: l[8], salary: l[9], holiday: l[10], otherConditions: l[11], openwork: l[12], memo: l[13]
-                }));
+                // ヘッダーに自由記述進捗が含まれている新フォーマットか、旧フォーマットかを判定してパース
+                const hasCustomStatusCol = headers.includes("自由記述進捗");
+                
+                companies = lines.slice(1).filter(l => l.length >= 2 && l[1]).map(l => {
+                    if (hasCustomStatusCol) {
+                        return {
+                            id: l[0], name: l[1], status: l[2], customStatus: l[3], industry: l[4], target: l[5],
+                            mypageUrl: l[6], mypageId: l[7], interventions: l[8], currentStatus: l[9],
+                            salary: l[10], holiday: l[11], otherConditions: l[12], openwork: l[13], memo: l[14]
+                        };
+                    } else {
+                        // 旧バックアップファイル互換用
+                        return {
+                            id: l[0], name: l[1], status: l[2], customStatus: "", industry: l[3], target: l[4],
+                            mypageUrl: l[5], mypageId: l[6], interventions: l[7], currentStatus: l[8],
+                            salary: l[9], holiday: l[10], otherConditions: l[11], openwork: l[12], memo: l[13]
+                        };
+                    }
+                });
                 saveToLocalStorage(); initDashboard(); alert("企業情報を復元しました！");
-            } 
-            // 予定データの復元判定
-            else if (headers.includes("予定名") && headers.includes("開始時間")) {
+            } else if (headers.includes("予定名") && headers.includes("開始時間")) {
                 if(!confirm("インポートしたファイルで【選考予定カレンダー】を上書きしますか？")) return;
                 events = lines.slice(1).filter(l => l.length >= 5 && l[1]).map(l => ({
-                    id: l[0] || 'e_' + Date.now() + Math.random(), title: l[1], companyName: l[2], 
-                    type: l[3], start: l[4], end: l[5], location: l[6], memo: l[7]
+                    id: l[0], title: l[1], companyName: l[2], type: l[3], start: l[4], end: l[5], location: l[6], memo: l[7]
                 }));
                 saveToLocalStorage(); initDashboard(); alert("選考予定を復元しました！");
-            } else {
-                alert("対応していないCSVファイルです。出力したバックアップCSVを選択してください。");
-            }
-            document.getElementById('importFile').value = ""; // リセット
+            } else { alert("対応していないCSVファイルです。"); }
+            document.getElementById('importFile').value = "";
         };
         reader.readAsText(file, "UTF-8");
     }
 
-    // 簡易CSVパース（カンマや改行のクォーテーションを考慮）
     function parseCSVText(text) {
         let lines = []; let row = [""]; let inQuotes = false;
-        // BOM削除
         if (text.startsWith('\uFEFF')) text = text.substring(1);
-        
         for (let i = 0; i < text.length; i++) {
             let c = text[i]; let next = text[i+1];
-            if (c === '"') {
-                if (inQuotes && next === '"') { row[row.length - 1] += '"'; i++; }
-                else { inQuotes = !inQuotes; }
-            } else if (c === ',' && !inQuotes) {
-                row.push('');
-            } else if ((c === '\r' || c === '\n') && !inQuotes) {
-                if (c === '\r' && next === '\n') i++;
-                lines.push(row); row = [''];
-            } else {
-                row[row.length - 1] += c;
-            }
+            if (c === '"') { if (inQuotes && next === '"') { row[row.length - 1] += '"'; i++; } else { inQuotes = !inQuotes; } }
+            else if (c === ',' && !inQuotes) { row.push(''); }
+            else if ((c === '\r' || c === '\n') && !inQuotes) { if (c === '\r' && next === '\n') i++; lines.push(row); row = ['']; }
+            else { row[row.length - 1] += c; }
         }
         if (row.length > 1 || row[0] !== '') lines.push(row);
         return lines;
